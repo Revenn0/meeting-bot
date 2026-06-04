@@ -17,5 +17,5 @@ const puppeteer = require('puppeteer');
   await new Promise(r => setTimeout(r, 5000));
   
   await browser.close();
-  console.log('完成 ♡');
+  console.log('完成');
 })();
