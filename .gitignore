@@ -1,0 +1,7 @@
+node_modules/
+bot-profile/
+output/
+*.y4m
+*.wav
+hello.png
+.DS_Store
