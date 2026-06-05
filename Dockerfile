@@ -14,4 +14,4 @@ ENV DISPLAY=:99
 ENV HEADLESS=false
 
 # Start xvfb in background, then run bot
-ENTRYPOINT ["sh", "-c", "Xvfb :99 -screen 0 1280x720x24 -nolisten tcp & sleep 1 && node bot.js"]
+ENTRYPOINT ["sh", "-c", "rm -f /tmp/.X99-lock && Xvfb :99 -screen 0 1280x720x24 -nolisten tcp & sleep 1 && node bot.js"]
