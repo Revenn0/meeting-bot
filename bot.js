@@ -1,12 +1,19 @@
 // bot.js - Meeting bot that joins Google Meet, pushes fake media,
 // and records remote participants' audio/video via RTCPeerConnection hook.
 
-const puppeteer = require('puppeteer');
-const path = require('path');
-const fs = require('fs');
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+// puppeteer.use(StealthPlugin());
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const MEET_URL = process.env.MEET_URL || 'https://meet.google.com/YOUR-MEET-CODE';
-const BOT_NAME = process.env.BOT_NAME || 'Demo Bot';
+const BOT_NAME = process.env.BOT_NAME || 'Brian Gu';
 const VIDEO_PATH = path.resolve(__dirname, 'media/fake_video.y4m');
 const AUDIO_PATH = path.resolve(__dirname, 'media/fake_audio.wav');
 const OUTPUT_DIR = path.resolve(__dirname, 'output');
@@ -24,12 +31,18 @@ if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
   const browser = await puppeteer.launch({
     headless: HEADLESS,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--lang=en-US',
+      // Stealth flags - make headless Chromium look more like a real browser
       '--disable-blink-features=AutomationControlled',
-      // Fake media device setup: push local files as camera/mic input
+      '--disable-features=IsolateOrigins,site-per-process',
+      '--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+      // Window size (no display in Docker, but Chromium needs this)
+      '--window-size=1280,720',
+      // Fake media
       '--use-fake-ui-for-media-stream',
       '--use-fake-device-for-media-stream',
       `--use-file-for-fake-video-capture=${VIDEO_PATH}`,
@@ -77,7 +90,16 @@ if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   await page.goto(MEET_URL, { waitUntil: 'networkidle2' });
 
   // Guest-mode join: type name + click "Ask to join"
-  await page.waitForSelector('input[type="text"]', { timeout: 30000 });
+  try {
+    await page.waitForSelector('input[type="text"]', { timeout: 30000 });
+  } catch (err) {
+    console.log('[bot] Name input not found, taking screenshot...');
+    await page.screenshot({ path: '/home/pptruser/app/output/debug.png', fullPage: true });
+    console.log('[bot] Screenshot saved to output/debug.png');
+    const html = await page.content();
+    console.log('[bot] Page HTML preview:', html.substring(0, 2000));
+    throw err;
+  }
   await page.type('input[type="text"]', BOT_NAME);
   await new Promise((r) => setTimeout(r, 1000));
 

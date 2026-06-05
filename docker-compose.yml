@@ -1,0 +1,17 @@
+services:
+  meeting-bot:
+    build: .
+    image: meeting-bot:latest
+    environment:
+      - MEET_URL=${MEET_URL}
+      - BOT_NAME=${BOT_NAME:-Demo Bot}
+      - RECORD_SECONDS=${RECORD_SECONDS:-15}
+      - HEADLESS=true
+    volumes:
+      - ./media:/home/pptruser/app/media:ro
+      - ./output:/home/pptruser/app/output
+    # Chromium needs some extra capabilities in Docker
+    cap_add:
+      - SYS_ADMIN
+    # Allow more shared memory (Chromium needs it)
+    shm_size: '2gb'
