@@ -5,3 +5,4 @@ media/
 *.y4m
 *.wav
 .DS_Store
+.env

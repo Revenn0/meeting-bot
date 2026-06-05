@@ -3,6 +3,7 @@
 
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+// import puppeteer from 'puppeteer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -39,7 +40,6 @@ if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
       // Stealth flags - make headless Chromium look more like a real browser
       '--disable-blink-features=AutomationControlled',
       '--disable-features=IsolateOrigins,site-per-process',
-      '--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
       // Window size (no display in Docker, but Chromium needs this)
       '--window-size=1280,720',
       // Fake media
@@ -86,6 +86,11 @@ if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     console.log('[bot] Recording flushed to disk:', OUTPUT_FILE);
   });
 
+  page.on('console', msg => {
+    if (msg.type() === 'log') {
+      console.log('[browser]', msg.text());
+    }
+  });
   console.log(`[bot] Navigating to ${MEET_URL}`);
   await page.goto(MEET_URL, { waitUntil: 'networkidle2' });
 
@@ -93,9 +98,11 @@ if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   try {
     await page.waitForSelector('input[type="text"]', { timeout: 30000 });
   } catch (err) {
+    const ts = Date.now();
+    const screenshotPath = path.join(OUTPUT_DIR, `debug-${ts}.png`);
     console.log('[bot] Name input not found, taking screenshot...');
-    await page.screenshot({ path: '/home/pptruser/app/output/debug.png', fullPage: true });
-    console.log('[bot] Screenshot saved to output/debug.png');
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    console.log('[bot] Screenshot saved to', screenshotPath);
     const html = await page.content();
     console.log('[bot] Page HTML preview:', html.substring(0, 2000));
     throw err;
@@ -127,14 +134,38 @@ if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
   console.log(`[bot] Recording for ${RECORD_SECONDS}s...`);
   await page.evaluate((seconds) => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const stream = window.__remoteStream;
-      const recorder = new MediaRecorder(stream, {
+      
+      // Debug: 检查每个 track 的状态
+      const tracks = stream.getTracks();
+      console.log(`[recorder] Stream has ${tracks.length} tracks:`);
+      tracks.forEach((t, i) => {
+        console.log(`  Track ${i}: kind=${t.kind}, readyState=${t.readyState}, enabled=${t.enabled}, muted=${t.muted}`);
+      });
+      
+      // 只保留 live + active 的 tracks
+      const activeTracks = tracks.filter(t => t.readyState === 'live');
+      console.log(`[recorder] Active tracks: ${activeTracks.length}`);
+      
+      if (activeTracks.length === 0) {
+        console.log('[recorder] No active tracks, aborting');
+        resolve();
+        return;
+      }
+      
+      // 构建新的 stream，只包含 active tracks
+      const recordStream = new MediaStream(activeTracks);
+      
+      const recorder = new MediaRecorder(recordStream, {
         mimeType: 'video/webm;codecs=vp8,opus',
       });
 
+      let chunkCount = 0;
       recorder.ondataavailable = async (e) => {
+        console.log(`[recorder] dataavailable: size=${e.data.size}`);
         if (e.data.size > 0) {
+          chunkCount++;
           const buffer = await e.data.arrayBuffer();
           const arr = Array.from(new Uint8Array(buffer));
           await window.saveChunk(arr);
@@ -142,14 +173,26 @@ if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
       };
 
       recorder.onstop = async () => {
+        console.log(`[recorder] stopped, total chunks: ${chunkCount}`);
         await window.finishRecording();
         resolve();
       };
+      
+      recorder.onerror = (e) => {
+        console.log('[recorder] ERROR:', e.error?.message);
+        reject(e);
+      };
 
       recorder.start(1000);
-      setTimeout(() => recorder.stop(), seconds * 1000);
+      console.log('[recorder] Started, state:', recorder.state);
+      
+      setTimeout(() => {
+        console.log('[recorder] Stopping, state:', recorder.state);
+        recorder.stop();
+      }, seconds * 1000);
     });
   }, RECORD_SECONDS);
+
 
   // Give the writeStream a moment to flush
   await new Promise((r) => setTimeout(r, 2000));
