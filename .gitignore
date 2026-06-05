@@ -1,7 +1,7 @@
 node_modules/
 bot-profile/
 output/
+media/
 *.y4m
 *.wav
-hello.png
 .DS_Store
