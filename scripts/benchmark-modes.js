@@ -46,7 +46,7 @@ async function measureMode(mode) {
       args: ${JSON.stringify(launchArgs)},
     });
     const page = await browser.newPage();
-    await page.goto('file://${fixturePath}');
+    await page.goto('file://${fixturePath}?phase=in-call');
     await new Promise((resolve) => setTimeout(resolve, 2000));
     await browser.close();
   `);

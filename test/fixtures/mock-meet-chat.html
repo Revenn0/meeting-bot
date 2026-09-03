@@ -2,43 +2,125 @@
 <html lang="en">
   <head><meta charset="utf-8"><title>Mock Meet Chat</title></head>
   <body>
-    <button aria-label="Turn off camera">Camera</button>
-    <button aria-label="Turn off microphone">Mic</button>
-    <input type="text" placeholder="Your name" />
-    <button>Ask to join</button>
-    <button aria-label="Chat with everyone">Chat</button>
-    <div id="chat-panel" hidden>
-      <div id="chat-list" aria-live="polite"></div>
-      <textarea aria-label="Send a message to everyone"></textarea>
-      <button aria-label="Send a message">Send</button>
-    </div>
-    <button aria-label="Leave call">Leave</button>
+    <section id="prejoin">
+      <button id="cam-off" aria-label="Turn off camera">Camera</button>
+      <button id="mic-off" aria-label="Turn off microphone">Mic</button>
+      <input id="guest-name" type="text" placeholder="Your name" aria-label="Your name" />
+      <button id="join-now">Join now</button>
+    </section>
+
+    <section id="waiting" hidden>
+      <p>You'll join when someone lets you in</p>
+    </section>
+
+    <section id="incall" hidden>
+      <button id="more-options" aria-label="More options" hidden>More</button>
+      <div id="more-menu" hidden>
+        <button id="menu-chat" aria-label="Chat with everyone">Chat with everyone</button>
+      </div>
+      <button id="chat-toggle" aria-label="Chat with everyone">Chat</button>
+      <div id="chat-panel" hidden>
+        <div id="chat-list" aria-live="polite"></div>
+        <textarea id="chat-input" aria-label="Send a message to everyone"></textarea>
+        <button id="chat-send" aria-label="Send a message">Send</button>
+      </div>
+      <button id="leave-call" aria-label="Leave call">Leave</button>
+    </section>
+
     <script>
+      const params = new URLSearchParams(location.search);
+      const startPhase = params.get('phase') || 'prejoin';
+      const variant = params.get('variant') || 'toolbar';
+      const delayMs = Number(params.get('delay') || '250');
+
+      const prejoin = document.getElementById('prejoin');
+      const waiting = document.getElementById('waiting');
+      const incall = document.getElementById('incall');
+      const chatPanel = document.getElementById('chat-panel');
       const list = document.getElementById('chat-list');
-      for (let i = 1; i <= 8; i += 1) {
-        const item = document.createElement('div');
-        item.className = 'chat-message';
-        item.dataset.messageText = 'seed-' + i;
-        item.textContent = 'seed-' + i;
-        list.appendChild(item);
+      const chatToggle = document.getElementById('chat-toggle');
+      const moreOptions = document.getElementById('more-options');
+      const moreMenu = document.getElementById('more-menu');
+      const menuChat = document.getElementById('menu-chat');
+
+      function seedMessages() {
+        if (list.childElementCount) return;
+        for (let i = 1; i <= 8; i += 1) {
+          const item = document.createElement('div');
+          item.className = 'chat-message';
+          item.dataset.messageText = 'seed-' + i;
+          item.textContent = 'seed-' + i;
+          list.appendChild(item);
+        }
       }
 
-      document.querySelector('[aria-label="Chat with everyone"]').addEventListener('click', () => {
-        document.getElementById('chat-panel').hidden = false;
+      function showOfficialChat() {
+        chatPanel.hidden = false;
+        seedMessages();
+      }
+
+      function enterInCall() {
+        prejoin.hidden = true;
+        waiting.hidden = true;
+        incall.hidden = false;
+        if (variant === 'more-menu') {
+          chatToggle.hidden = true;
+          moreOptions.hidden = false;
+        }
+        window.__phase = 'in-call';
+      }
+
+      function enterWaiting() {
+        prejoin.hidden = true;
+        waiting.hidden = false;
+        incall.hidden = true;
+        window.__phase = 'waiting';
+      }
+
+      document.getElementById('join-now').addEventListener('click', () => {
+        window.__joinClicked = true;
+        setTimeout(() => {
+          if (variant === 'waiting') enterWaiting();
+          else enterInCall();
+        }, delayMs);
       });
-      document.querySelector('[aria-label="Send a message"]').addEventListener('click', () => {
-        const value = document.querySelector('textarea').value;
+
+      chatToggle.addEventListener('click', showOfficialChat);
+      menuChat.addEventListener('click', () => {
+        moreMenu.hidden = true;
+        showOfficialChat();
+      });
+      moreOptions.addEventListener('click', () => {
+        moreMenu.hidden = !moreMenu.hidden;
+      });
+
+      document.getElementById('chat-send').addEventListener('click', () => {
+        const value = document.getElementById('chat-input').value;
         window.__lastMessage = value;
         const item = document.createElement('div');
         item.className = 'chat-message';
         item.dataset.messageText = value;
         item.textContent = value;
         list.appendChild(item);
-        document.querySelector('textarea').value = '';
+        document.getElementById('chat-input').value = '';
       });
-      document.querySelector('[aria-label="Leave call"]').addEventListener('click', () => {
+
+      document.getElementById('leave-call').addEventListener('click', () => {
         window.__left = true;
       });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey && event.altKey && (event.key === 'c' || event.key === 'C')) {
+          if (window.__phase === 'in-call') showOfficialChat();
+        }
+      });
+
+      if (startPhase === 'in-call') {
+        enterInCall();
+        if (params.get('chat') === 'open') showOfficialChat();
+      } else {
+        window.__phase = 'prejoin';
+      }
     </script>
   </body>
 </html>

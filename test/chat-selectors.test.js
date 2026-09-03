@@ -43,7 +43,7 @@ describe('mock meet chat page', () => {
 
     try {
       const page = await browser.newPage();
-      await page.goto(`file://${fixturePath}`);
+      await page.goto(`file://${fixturePath}?phase=in-call`);
 
       const beforeOpen = await page.evaluate(() => {
         return window.probe?.() ?? null;

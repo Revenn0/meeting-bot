@@ -17,7 +17,7 @@ describe('chat history and media suppress', () => {
     });
     try {
       const page = await browser.newPage();
-      await page.goto(`file://${fixturePath}`);
+      await page.goto(`file://${fixturePath}?phase=in-call&chat=open`);
       await openChatPanel(page, { timeoutMs: 3000 });
       const before = await readRecentChatMessages(page, { limit: 50 });
       assert.equal(before.length, 8);

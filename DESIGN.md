@@ -31,9 +31,9 @@ bot.js
   → loadConfig()
   → launchBrowser() without fake-device flags
   → runChatOnlyMode()
-       → joinMeetAsGuest() + disableCameraAndMic()
-       → wait ADMIT_WAIT_MS
-       → openChatPanel()
+       → joinMeetAsGuest() + disableCameraAndMic() + Join now
+       → waitUntilInCall()  (Leave call visible; click+sleep is not enough)
+       → openChatPanel()    (official Meet chat only: toolbar / More options / Ctrl+Alt+C)
        → createMessageScheduler() → sendChatMessage()
        → leaveCall() + browser.close()
 ```
@@ -52,11 +52,13 @@ This reduces CPU, memory, and WebRTC send-path work.
 
 Before typing the guest name, `disableCameraAndMic()` clicks Meet pre-join toggles when labels match `Turn off camera` / `Turn off microphone`. If toggles are already off or labels changed, join continues with a log line rather than failing silently.
 
-### Chat UI interaction
+### Chat UI interaction (official Meet chat only)
 
-Meet chat selectors are centralized in `lib/chat-selectors.js` with ordered fallbacks (`aria-label` patterns for chat toggle, textarea, send, leave). `meet-chat.js` throws explicit errors if the panel or input never appears — typically after a screenshot in the join path or a timeout on chat open.
+This is the **in-call Meet chat**, not a page overlay. `lib/meet-selectors.js` matches EN/PT/ES labels. `openChatPanel` only succeeds when the official composer appears (`Send a message to everyone` / equivalents). Strategies: toolbar control, **More options → Chat** (small windows hide the icon — this caused live `Could not open Meet chat panel`), then `Ctrl+Alt+C`.
 
-Messages are sent via send button click or Enter key dispatch. Each bot instance should use a distinct `BOT_NAME`; the bot does not synthesize identities.
+`waitUntilInCall` polls until **Leave call** is visible and **Join now** is gone. Waiting-room copy is **not** in-call.
+
+Each bot uses a distinct `BOT_NAME`.
 
 ### Cleanup and timeouts
 
@@ -244,6 +246,10 @@ Tests use Node's built-in test runner and never contact `meet.google.com`:
 - `test/cleanup.test.js` — scheduler timer cleanup
 - `test/chat-selectors.test.js` — launch arg differences + local HTML fixture via Puppeteer
 - `test/chat-only-simulator.test.js` — in-process chat-only fleet simulation (no network)
+- `test/chromium-flags.test.js` — profiles, recording-flag freeze, flag docs
+- `test/startup-gate.test.js` — stagger waves and concurrency limiter
+- `test/chat-history.test.js` — bounded DOM + getUserMedia deny
+- `test/fleet-safety.test.js` — refuse live Meet URLs
 
 This keeps CI fast and avoids violating Google ToS during automated runs.
 
@@ -257,4 +263,6 @@ This keeps CI fast and avoids violating Google ToS during automated runs.
 - Measures peak/average RSS, CPU user+system time, and message throughput
 - Hard limits: `MAX_BOTS=1000`, `LOADTEST_MAX_RSS_MB=512` (stops early if exceeded)
 
-This validates scheduler/config memory scaling and cleanup. It does **not** predict live Meet DOM or WebRTC cost — use `npm run benchmark:mock` for single-browser RSS comparison on the local HTML fixture.
+This validates scheduler/config memory scaling and cleanup. It does **not** predict live Meet DOM or WebRTC cost.
+
+Use `npm run benchmark:chromium` for 1–5 local Chromium trees (PSS, process count, launch CPU, simultaneous vs staggered). Default mock target is `file://test/fixtures/mock-meet-chat.html`.

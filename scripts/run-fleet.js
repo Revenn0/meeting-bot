@@ -21,7 +21,7 @@ async function main() {
     throw new Error('FLEET_SIZE must be 1-5 for local browser runs (use in-process loadtest for larger scales).');
   }
 
-  const meetUrl = process.env.MEET_URL || `file://${path.join(root, 'test/fixtures/mock-meet-chat.html')}`;
+  const meetUrl = process.env.MEET_URL || `file://${path.join(root, 'test/fixtures/mock-meet-chat.html')}?phase=in-call`;
   assertSafeTarget(meetUrl);
 
   const concurrency = Number.parseInt(process.env.STARTUP_CONCURRENCY || '2', 10);

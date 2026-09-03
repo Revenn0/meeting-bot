@@ -106,7 +106,7 @@ async function launchProfileSession({ profile, botName, holdMs }) {
     defaultViewport: { width: config.window.width, height: config.window.height, deviceScaleFactor: 1 },
   });
   const page = await acquirePage(browser, config);
-  await page.goto(`file://${fixturePath}`, { waitUntil: config.navigationWaitUntil });
+  await page.goto(`file://${fixturePath}?phase=in-call`, { waitUntil: config.navigationWaitUntil });
   await openChatPanel(page, { timeoutMs: 3000 });
   await sendChatMessage(page, 'bench');
   const launchMs = Math.round(performance.now() - started);

@@ -4,8 +4,12 @@
   "version": "1.1.0",
   "description": "Google Meet bot with recording and chat-only modes",
   "main": "bot.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "start": "node bot.js",
+    "start": "node scripts/run-one-bot.js",
+    "bot:one": "node scripts/run-one-bot.js",
     "test": "node --test test/*.test.js",
     "benchmark:mock": "node scripts/benchmark-modes.js",
     "benchmark:chromium": "node scripts/benchmark-chromium-profiles.js",
