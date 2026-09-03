@@ -1,11 +1,13 @@
 {
   "name": "meeting-bot",
   "type": "module",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "1.1.0",
+  "description": "Google Meet bot with recording and chat-only modes",
+  "main": "bot.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node bot.js",
+    "test": "node --test test/*.test.js",
+    "benchmark:mock": "node scripts/benchmark-modes.js"
   },
   "keywords": [],
   "author": "",

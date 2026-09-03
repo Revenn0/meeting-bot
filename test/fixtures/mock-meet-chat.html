@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>Mock Meet Chat</title></head>
+  <body>
+    <button aria-label="Chat with everyone">Chat</button>
+    <div id="chat-panel" hidden>
+      <textarea aria-label="Send a message to everyone"></textarea>
+      <button aria-label="Send a message">Send</button>
+    </div>
+    <button aria-label="Leave call">Leave</button>
+    <script>
+      document.querySelector('[aria-label="Chat with everyone"]').addEventListener('click', () => {
+        document.getElementById('chat-panel').hidden = false;
+      });
+      document.querySelector('[aria-label="Send a message"]').addEventListener('click', () => {
+        window.__lastMessage = document.querySelector('textarea').value;
+        document.querySelector('textarea').value = '';
+      });
+    </script>
+  </body>
+</html>

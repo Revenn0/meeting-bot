@@ -6,7 +6,10 @@ services:
       - MEET_URL=${MEET_URL}
       - BOT_NAME=${BOT_NAME:-Demo Bot}
       - RECORD_SECONDS=${RECORD_SECONDS:-15}
-      - HEADLESS=false       
+      - MODE=${MODE:-default}
+      - CHAT_MESSAGE=${CHAT_MESSAGE:-Hello}
+      - CHAT_INTERVAL_MS=${CHAT_INTERVAL_MS:-5000}
+      - HEADLESS=false
       - DISPLAY=:99
     volumes:
       - ./media:/home/pptruser/app/media:ro
