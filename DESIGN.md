@@ -201,5 +201,18 @@ Tests use Node's built-in test runner and never contact `meet.google.com`:
 - `test/message-scheduler.test.js` — tick computation and interval control
 - `test/cleanup.test.js` — scheduler timer cleanup
 - `test/chat-selectors.test.js` — launch arg differences + local HTML fixture via Puppeteer
+- `test/chat-only-simulator.test.js` — in-process chat-only fleet simulation (no network)
 
 This keeps CI fast and avoids violating Google ToS during automated runs.
+
+### Safe local load test (CHAT_ONLY simulation)
+
+`npm run loadtest:chat-only` exercises `lib/sim/chat-only-simulator.js` and `scripts/load-test-chat-only.js`:
+
+- No Google Meet URLs (uses `meet.example.invalid`)
+- No Puppeteer / Chromium processes
+- Scales: 5, 25, 100, 500, 1000 simulated bots by default
+- Measures peak/average RSS, CPU user+system time, and message throughput
+- Hard limits: `MAX_BOTS=1000`, `LOADTEST_MAX_RSS_MB=512` (stops early if exceeded)
+
+This validates scheduler/config memory scaling and cleanup. It does **not** predict live Meet DOM or WebRTC cost — use `npm run benchmark:mock` for single-browser RSS comparison on the local HTML fixture.

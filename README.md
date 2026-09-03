@@ -128,7 +128,18 @@ npm install
 npm test
 ```
 
-Tests cover configuration parsing, mode selection, message scheduling, cleanup, browser arg differences, and a local HTML mock page for chat selectors.
+Tests cover configuration parsing, mode selection, message scheduling, cleanup, browser arg differences, a local HTML mock page for chat selectors, and an in-process chat-only simulator.
+
+### Safe local load test (no Meet, no browser)
+
+Simulates CHAT_ONLY scheduler sessions in-process at scales 5/25/100/500/1000 bots (configurable). Uses a non-routable Meet URL and never opens Puppeteer or the network:
+
+```bash
+npm run loadtest:chat-only
+# optional: npm run loadtest:chat-only -- --counts=5,25,100
+```
+
+Limits: `MAX_BOTS=1000` (hard cap), `LOADTEST_MAX_RSS_MB=512` (stops if peak RSS exceeds this). Override session timing with `LOADTEST_RECORD_SECONDS` and `LOADTEST_CHAT_INTERVAL_MS` (minimum 1000 ms).
 
 ## Resource benchmark (local mock)
 
