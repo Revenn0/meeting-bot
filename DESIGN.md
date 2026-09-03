@@ -257,7 +257,7 @@ This keeps CI fast and avoids violating Google ToS during automated runs.
 
 ### Safe local load test (CHAT_ONLY simulation)
 
-Local fleets (`lib/wave-planner.js`, `lib/fleet-runner.js`, `scripts/run-fleet-live.js`) launch waves of 10 with unique `BOT_NAME` prefixes on **one PC**. Each guest emits `[bot-join]` as soon as **Leave call** is visible (or on can't-join / timeout). The **next wave starts after joins**, so a second local wave can overlap while earlier guests stay for `RECORD_SECONDS`. Optional in-wave stagger (`STARTUP_STAGGER_MS`) and `STARTUP_CONCURRENCY`. Hard stop when ≥50% of a wave hits the can't-join interstitial. Chat failure does not eject an in-call guest. `fleet:10` / `fleet:100` require `CONFIRM_LIVE=true` and a real `MEET_URL`. Supported run: `bot:one` then local waves up to ~20–25. Modal/cloud is out of scope. Runbooks: `FLEET.md`.
+Local fleets (`lib/wave-planner.js`, `lib/fleet-runner.js`, `scripts/run-fleet-live.js`) launch waves of 10 with unique `BOT_NAME` prefixes on **one PC**. Each guest emits `[bot-join]` as soon as **Leave call** is visible (or on can't-join / timeout). The **next wave starts after joins**, so `fleet:20` can overlap two waves while earlier guests stay for `RECORD_SECONDS`. Optional in-wave stagger (`STARTUP_STAGGER_MS`) and `STARTUP_CONCURRENCY`. Hard stop when ≥50% of a wave hits the can't-join interstitial. Chat failure does not eject an in-call guest. Live fleets require `CONFIRM_LIVE=true` and a real `MEET_URL`. Supported run: `bot:one` → `fleet:10` → `fleet:20` (hardware limit ~20–25). Modal/cloud is out of scope. Runbooks: `FLEET.md`.
 
 `npm run loadtest:chat-only` exercises `lib/sim/chat-only-simulator.js` and `scripts/load-test-chat-only.js`:
 

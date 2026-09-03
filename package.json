@@ -11,6 +11,7 @@
     "start": "node scripts/run-one-bot.js",
     "bot:one": "node scripts/run-one-bot.js",
     "fleet:10": "node scripts/run-fleet-live.js --size=10",
+    "fleet:20": "node scripts/run-fleet-live.js --size=20",
     "fleet:100": "node scripts/run-fleet-live.js --size=100",
     "test": "node --test test/*.test.js",
     "benchmark:mock": "node scripts/benchmark-modes.js",

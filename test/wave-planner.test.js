@@ -33,9 +33,9 @@ describe('wave planner', () => {
   });
 
   it('applies FLEET_OFFSET for a second machine', () => {
-    const waves = planWaves({ total: 20, waveSize: 10, startIndex: 50, namePrefix: 'Modal' });
-    assert.equal(waves[0].bots[0].name, 'Modal-51');
-    assert.equal(waves[1].bots[9].name, 'Modal-70');
+    const waves = planWaves({ total: 20, waveSize: 10, startIndex: 10, namePrefix: 'PC2' });
+    assert.equal(waves[0].bots[0].name, 'PC2-11');
+    assert.equal(waves[1].bots[9].name, 'PC2-30');
   });
 
   it('hard-stops when a majority of a wave is blocked', () => {

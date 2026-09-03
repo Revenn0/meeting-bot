@@ -130,15 +130,15 @@ Every guest must really join (**Leave call** visible) and use official chat when
 
 | Command | What it does |
 |---|---|
-| `npm run bot:one` | One PC guest (install / sanity) |
+| `npm run bot:one` | One PC guest (`start.bat` / `start.ps1` / `start.sh`) |
 | `npm run fleet:10` | One local wave of 10 (`CONFIRM_LIVE=true` + `MEET_URL`) |
-| `npm run fleet:100` | Gated only — **not** the supported laptop path |
+| `npm run fleet:20` | Two overlapping local waves (~20) on the same PC |
 
 Hard-stop if ≥50% of a wave hits **You can't join**. Stay in-call even if chat fails.
 
-**Supported path:** one 16–32 GiB PC, ~0.4 GiB unique/bot. `bot:one` → `fleet:10` → optional second local wave with `FLEET_OFFSET=10` while the first is still in-call (`RECORD_SECONDS` ≥ 300). Stop around 20–25 guests when RAM/CPU saturates.
+**Supported path:** one 16–32 GiB PC, ~0.4 GiB unique/bot. `bot:one` → `fleet:10` → `fleet:20` (or a second `fleet:10` with `FLEET_OFFSET=10` while the first is still in-call). `RECORD_SECONDS` ≥ 300. Stop around 20–25 guests when RAM/CPU saturates.
 
-Modal/cloud scale-out is **out of scope** for this PR (see the short appendix in `FLEET.md`). Do not burn Modal from CI.
+Modal / cloud is **out of scope**. Do not run `fleet:100` on a laptop.
 
 ---
 
@@ -167,7 +167,7 @@ See `DESIGN.md` for Chromium flags, stagger, and resource notes. Do not stress-t
 | `RECORD_SECONDS` | `15` (`60` in `.env.example`) | How long to stay |
 | `HEADLESS` | `false` on `npm start` | `true` hides Chrome |
 | `WINDOW_SIZE` | `1280x720` on `npm start` / fleet | Keep large so chat is not overflowed |
-| `CONFIRM_LIVE` | unset | Required for `fleet:10` / `fleet:100` |
+| `CONFIRM_LIVE` | unset | Required for `fleet:10` / `fleet:20` |
 | `BOT_NAME_PREFIX` | `Fleet` | Unique guest names `{prefix}-{n}` |
 | `FLEET_OFFSET` | `0` | Extra machine start index |
 | `STARTUP_CONCURRENCY` | `2` | Max Chromiums launching at once |
