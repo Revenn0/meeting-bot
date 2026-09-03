@@ -124,6 +124,22 @@ The mock fixture covers pre-join, waiting room (must **not** count as in-call), 
 
 **Live validation always needs an open Meet link.** Automated tests never contact Google.
 
+## Scale: 10 → 100 real guests
+
+Every guest must really join (Leave call) and use official chat when possible. See **`FLEET.md`** for full runbooks.
+
+| Command | What it does |
+|---|---|
+| `npm run bot:one` | One PC guest |
+| `npm run fleet:10` | One wave of 10 (needs `CONFIRM_LIVE=true` + `MEET_URL`) |
+| `npm run fleet:100` | Ten waves of 10 — **gated**; needs `CONFIRM_LIVE=true` + real `MEET_URL` |
+
+Hard-stop if ≥50% of a wave hits **You can't join**. Stay in-call even if chat fails.
+
+**A) One PC (~20):** 16–32 GiB RAM, ~0.4 GiB unique/bot. `bot:one` → `fleet:10` → optional second wave with `FLEET_OFFSET=10`.
+
+**B) Modal/cloud (100+):** budget **1.0–1.5 GiB/bot** or 5 machines × 20. Unique `BOT_NAME_PREFIX` + `FLEET_OFFSET`. Do not run `fleet:100` from CI.
+
 ---
 
 ## Features / architecture

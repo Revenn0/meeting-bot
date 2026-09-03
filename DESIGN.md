@@ -257,6 +257,8 @@ This keeps CI fast and avoids violating Google ToS during automated runs.
 
 ### Safe local load test (CHAT_ONLY simulation)
 
+Live fleets (`lib/wave-planner.js`, `scripts/run-fleet-live.js`) launch waves of 10 with unique `BOT_NAME`s, optional in-wave stagger, and a hard stop when ≥50% of a wave hits the can't-join interstitial. Chat failure does not eject an in-call guest. `fleet:100` requires `CONFIRM_LIVE=true`. Runbooks: `FLEET.md`.
+
 `npm run loadtest:chat-only` exercises `lib/sim/chat-only-simulator.js` and `scripts/load-test-chat-only.js`:
 
 - No Google Meet URLs (uses `meet.example.invalid`)

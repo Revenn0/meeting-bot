@@ -15,6 +15,10 @@
       <p>You'll join when someone lets you in</p>
     </section>
 
+    <section id="blocked" hidden>
+      <p>You can't join this video call</p>
+    </section>
+
     <section id="incall" hidden>
       <button id="more-options" aria-label="More options" hidden>More</button>
       <div id="more-menu" hidden>
@@ -69,6 +73,10 @@
           chatToggle.hidden = true;
           moreOptions.hidden = false;
         }
+        if (variant === 'no-chat') {
+          chatToggle.hidden = true;
+          moreOptions.hidden = true;
+        }
         window.__phase = 'in-call';
       }
 
@@ -77,6 +85,14 @@
         waiting.hidden = false;
         incall.hidden = true;
         window.__phase = 'waiting';
+      }
+
+      function enterBlocked() {
+        prejoin.hidden = true;
+        waiting.hidden = true;
+        incall.hidden = true;
+        document.getElementById('blocked').hidden = false;
+        window.__phase = 'blocked';
       }
 
       window.__joinClicks = 0;
@@ -101,6 +117,7 @@
         }
         setTimeout(() => {
           if (variant === 'waiting') enterWaiting();
+          else if (variant === 'blocked') enterBlocked();
           else enterInCall();
         }, delayMs);
       });
@@ -130,6 +147,7 @@
       });
 
       document.addEventListener('keydown', (event) => {
+        if (variant === 'no-chat') return;
         if (event.ctrlKey && event.altKey && (event.key === 'c' || event.key === 'C')) {
           if (window.__phase === 'in-call') showOfficialChat();
         }

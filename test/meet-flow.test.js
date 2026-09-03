@@ -6,7 +6,9 @@ import puppeteer from 'puppeteer';
 import { classifyJoinLabel } from '../lib/meet-selectors.js';
 import { clickVisibleJoinControl, joinMeetAsGuest } from '../lib/meet-join.js';
 import { openChatPanel, sendChatMessage } from '../lib/meet-chat.js';
+import { MeetBlockedError } from '../lib/bot-result.js';
 import { inspectMeetState, waitUntilInCall } from '../lib/meet-state.js';
+import { runChatOnlyMode } from '../lib/modes/chat-only.js';
 import { matchesAnyKeyword } from '../lib/meet-selectors.js';
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'mock-meet-chat.html');
@@ -124,6 +126,50 @@ describe('join now preference', () => {
       assert.equal(probe.kind, 'join-now');
       assert.equal(probe.ignoredHiddenAsk, true);
       assert.match(probe.clicked, /join now|entrar/i);
+    });
+  });
+});
+
+describe('blocked interstitial', () => {
+  it('hard-fails on You can\'t join after Join now', async () => {
+    await withPage('?variant=blocked&delay=40', async (page) => {
+      await joinMeetAsGuest(page, {
+        meetUrl: `file://${fixture}?variant=blocked&delay=40`,
+        botName: 'Blocked Bot',
+        joinTimeoutMs: 3000,
+        outputDir: '/tmp',
+        waitUntil: 'domcontentloaded',
+      });
+      await assert.rejects(
+        () => waitUntilInCall(page, { timeoutMs: 1500, outputDir: '/tmp', pollMs: 40 }),
+        MeetBlockedError,
+      );
+    });
+  });
+});
+
+describe('stay in-call if chat fails', () => {
+  it('remains in-call when official chat cannot open', async () => {
+    await withPage('?variant=no-chat&delay=40', async (page) => {
+      await runChatOnlyMode({
+        page,
+        config: {
+          meetUrl: `file://${fixture}?variant=no-chat&delay=40`,
+          botName: 'Stay Bot',
+          joinTimeoutMs: 3000,
+          admitWaitMs: 2000,
+          chatPanelTimeoutMs: 800,
+          chatIntervalMs: 1000,
+          recordSeconds: 1,
+          chatHistoryLimit: 5,
+          chatMessage: 'x',
+          chromiumProfile: 'chat-slim',
+          outputDir: '/tmp',
+          navigationWaitUntil: 'domcontentloaded',
+        },
+      });
+      const left = await page.evaluate(() => window.__left === true);
+      assert.equal(left, true);
     });
   });
 });
