@@ -32,7 +32,7 @@ describe('wave planner', () => {
     assert.equal(new Set(waves.flatMap((wave) => wave.bots.map((bot) => bot.name))).size, 100);
   });
 
-  it('applies FLEET_OFFSET for a second machine', () => {
+  it('applies FLEET_OFFSET for a second local process', () => {
     const waves = planWaves({ total: 20, waveSize: 10, startIndex: 10, namePrefix: 'PC2' });
     assert.equal(waves[0].bots[0].name, 'PC2-11');
     assert.equal(waves[1].bots[9].name, 'PC2-30');
