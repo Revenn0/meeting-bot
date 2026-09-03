@@ -9,6 +9,7 @@ WORKDIR /home/pptruser/app
 COPY --chown=pptruser:pptruser package*.json ./
 RUN PUPPETEER_SKIP_DOWNLOAD=true npm ci --omit=dev
 COPY --chown=pptruser:pptruser bot.js ./
+COPY --chown=pptruser:pptruser lib ./lib
 
 ENV DISPLAY=:99
 ENV HEADLESS=false

@@ -1,11 +1,23 @@
 {
   "name": "meeting-bot",
   "type": "module",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "1.1.0",
+  "description": "Google Meet bot with recording and chat-only modes",
+  "main": "bot.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node scripts/run-one-bot.js",
+    "bot:one": "node scripts/run-one-bot.js",
+    "fleet:10": "node scripts/run-fleet-live.js --size=10",
+    "fleet:20": "node scripts/run-fleet-live.js --size=20",
+    "fleet:100": "node scripts/run-fleet-live.js --size=100",
+    "test": "node --test test/*.test.js",
+    "benchmark:mock": "node scripts/benchmark-modes.js",
+    "benchmark:chromium": "node scripts/benchmark-chromium-profiles.js",
+    "loadtest:chat-only": "node scripts/load-test-chat-only.js",
+    "fleet:local": "node scripts/run-fleet.js"
   },
   "keywords": [],
   "author": "",

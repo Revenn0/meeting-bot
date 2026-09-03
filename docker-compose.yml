@@ -6,7 +6,15 @@ services:
       - MEET_URL=${MEET_URL}
       - BOT_NAME=${BOT_NAME:-Demo Bot}
       - RECORD_SECONDS=${RECORD_SECONDS:-15}
-      - HEADLESS=false       
+      - MODE=${MODE:-default}
+      - CHAT_MESSAGE=${CHAT_MESSAGE:-Hello}
+      - CHAT_INTERVAL_MS=${CHAT_INTERVAL_MS:-5000}
+      - CHROMIUM_PROFILE=${CHROMIUM_PROFILE:-chat-slim}
+      - STARTUP_CONCURRENCY=${STARTUP_CONCURRENCY:-2}
+      - STARTUP_STAGGER_MS=${STARTUP_STAGGER_MS:-2500}
+      - BOT_INDEX=${BOT_INDEX:-0}
+      - CHAT_HISTORY_LIMIT=${CHAT_HISTORY_LIMIT:-20}
+      - HEADLESS=false
       - DISPLAY=:99
     volumes:
       - ./media:/home/pptruser/app/media:ro
