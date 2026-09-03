@@ -27,9 +27,12 @@ Default mode:
   ↓ MediaRecorder + optional MediaStreamTrackProcessor
 
 CHAT_ONLY mode:
+  ↓ optional startup stagger (BOT_INDEX / STARTUP_CONCURRENCY)
+  ↓ slim Chromium (chat-slim profile)
+  ↓ reuse about:blank page; deny camera/mic permissions
+  ↓ suppress getUserMedia + stop remote tracks (no recording)
   ↓ disable camera/mic on pre-join screen
-  ↓ open Meet chat panel
-  ↓ send CHAT_MESSAGE every CHAT_INTERVAL_MS
+  ↓ open Meet chat, read/send with bounded history
   ↓ leave call + browser cleanup
 ```
 
@@ -50,6 +53,15 @@ See `DESIGN.md` for design rationale, privacy notes, and benchmark instructions.
 | `JOIN_TIMEOUT_MS` | `30000` | Pre-join name input timeout |
 | `ADMIT_WAIT_MS` | `20000` | Wait for host admit before recording/chat |
 | `CHAT_PANEL_TIMEOUT_MS` | `15000` | Timeout opening chat input |
+| `CHROMIUM_PROFILE` | `chat-slim` in chat-only | `chat-slim` (default), `chat-legacy` (A/B), `chat-single-process` (experimental) |
+| `WINDOW_SIZE` | `800x600` chat-only / `1280x720` default | Chromium window / viewport |
+| `CHAT_HISTORY_LIMIT` | `20` | Max chat DOM nodes kept after each send |
+| `BOT_INDEX` | `0` | Fleet index used to compute startup delay |
+| `STARTUP_CONCURRENCY` | `2` | How many bots may launch in the same wave |
+| `STARTUP_STAGGER_MS` | `2500` | Delay between startup waves |
+| `STARTUP_JITTER_MS` | `250` | Extra random delay per bot |
+| `JS_HEAP_MB` | `96` | V8 `--max-old-space-size` in chat-slim |
+| `DEBUG_BROWSER_LOGS` | unset | Set `true` to print Chromium flags and page console |
 
 ## Quick start (default recording mode)
 
@@ -94,6 +106,10 @@ RECORD_SECONDS=60
 MODE=chat-only
 CHAT_MESSAGE=Hello from the bot
 CHAT_INTERVAL_MS=5000
+CHROMIUM_PROFILE=chat-slim
+STARTUP_CONCURRENCY=2
+STARTUP_STAGGER_MS=2500
+CHAT_HISTORY_LIMIT=20
 EOF
 
 docker compose up
@@ -115,9 +131,19 @@ node bot.js
 CHAT_ONLY mode:
 
 - Does **not** require `media/fake_video.y4m` or `media/fake_audio.wav`
-- Keeps camera and microphone off in the pre-join flow
-- Skips fake media Chromium flags, RTCPeerConnection hooks, MediaRecorder, and frame capture
-- Opens chat, sends messages at `CHAT_INTERVAL_MS`, then leaves the call and closes the browser
+- Keeps camera and microphone off in the pre-join flow and does not grant those permissions
+- Skips fake media Chromium flags, recording hooks, MediaRecorder, and frame capture
+- Reuses the initial page, suppresses local media capture, and stops remote tracks without recording them
+- Opens chat, reads a bounded snapshot, sends `CHAT_MESSAGE` at `CHAT_INTERVAL_MS`, then leaves
+- Each process is still a **separate guest identity** (`BOT_NAME`). Do not share one logged-in profile.
+
+For 2–5 local guests against a **mock page** (not Meet):
+
+```bash
+FLEET_SIZE=3 npm run fleet:local
+```
+
+`scripts/run-fleet.js` refuses `meet.google.com` unless `ALLOW_LIVE_MEET=true`.
 
 If Meet changes its UI, the bot saves a debug screenshot under `output/` and exits with a clear selector error.
 
@@ -143,15 +169,25 @@ Limits: `MAX_BOTS=1000` (hard cap), `LOADTEST_MAX_RSS_MB=512` (stops if peak RSS
 
 ## Resource benchmark (local mock)
 
-Compare peak RSS between modes on a local mock page (does not contact Google Meet):
-
 ```bash
-npm run benchmark:mock
+npm run benchmark:mock          # Node RSS: default vs chat-only launch args
+npm run benchmark:chromium      # 1–5 Chromium trees, PSS/process/CPU (file:// mock)
 ```
 
-For one to five instances locally, run separate terminals with distinct `BOT_NAME` values and compare `ps`/`/proc/<pid>/status` RSS while sessions are active. Expect CHAT_ONLY to use less memory and CPU because it avoids fake media files, WebRTC decode, and recording.
+Local Chromium comparison on this host (file:// mock, **no Google Meet**):
 
-**Real Meet scale** (many concurrent bots in one room) is subject to Google account limits, admission controls, and anti-abuse policies. This project does not include stress-testing tooling for live Meet.
+| Profile | Procs/bot | PSS/bot (1 inst) | Peak single RSS | Launch | CPU (1 inst) |
+|---|---|---|---|---|---|
+| `chat-legacy` (previous chat-only) | 8 | 296 MB | 188 MB | 273 ms | 62 ms |
+| **`chat-slim` (default)** | **4** | **273 MB** | 192 MB | **200 ms** | **28 ms** |
+| `chat-single-process` (experimental) | 1 | 216 MB | 231 MB | 228 ms | 28 ms |
+
+5× `chat-slim` (concurrency 2, staggered): 20 processes, ~167 MB PSS/bot, max launch 266 ms, CPU 244 ms.  
+5× simultaneous: same process count, launch **506 ms**, CPU **574 ms** — stagger is what avoids the 98–100% CPU abort seen with 25 live Chromiums.
+
+**25-bot estimate** from the 5-instance slim mock (PSS, linear): ~**100 processes**, ~**4.1 GiB** unique. Live Meet UI/decode will add more; previous uncontrolled live run used ~7.4 GiB and 266 processes. `chat-single-process` is **not** the live default — WebRTC in one process is unstable.
+
+**Real Meet scale** is subject to Google limits. Do not stress-test live Meet from CI.
 
 ## Privacy and safety
 
@@ -172,11 +208,16 @@ For one to five instances locally, run separate terminals with distinct `BOT_NAM
 │   ├── meet-chat.js            Chat panel open/send/leave
 │   ├── chat-selectors.js       Resilient Meet UI selectors
 │   ├── message-scheduler.js    Controlled chat send timing
+│   ├── chromium-flags.js       Documented Chromium profiles
+│   ├── startup-gate.js         Stagger / concurrency
+│   ├── media-suppress.js       Deny capture, stop remote tracks
+│   ├── chat-history.js         Bounded chat DOM
 │   └── modes/
 │       ├── recording.js        Default media + recording path
 │       └── chat-only.js        Chat-only session path
 ├── test/                       Unit/mock tests (no Meet)
-├── scripts/benchmark-modes.js  Local RSS comparison helper
+├── scripts/benchmark-chromium-profiles.js
+├── scripts/run-fleet.js        1–5 isolated local guests (blocks live Meet)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── README.md

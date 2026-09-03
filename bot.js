@@ -3,6 +3,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { loadConfig, isChatOnlyMode, MODES } from './lib/config.js';
 import { launchBrowser } from './lib/browser.js';
+import { applyMeetPermissions, acquirePage } from './lib/page-setup.js';
+import { applyStartupGate } from './lib/startup-gate.js';
 import { runRecordingMode } from './lib/modes/recording.js';
 import { runChatOnlyMode } from './lib/modes/chat-only.js';
 
@@ -32,6 +34,7 @@ async function main() {
 
   if (isChatOnlyMode(config)) {
     console.log('[bot] CHAT_ONLY mode: no fake media files or recording output expected.');
+    await applyStartupGate(runtimeConfig);
   } else {
     console.log('[bot] Video source:', videoPath);
     console.log('[bot] Audio source:', audioPath);
@@ -42,15 +45,8 @@ async function main() {
   let outputFile = null;
 
   try {
-    const context = browser.defaultBrowserContext();
-    await context.overridePermissions('https://meet.google.com', ['camera', 'microphone']);
-
-    const page = await browser.newPage();
-    page.on('console', (msg) => {
-      if (msg.type() === 'log') {
-        console.log('[browser]', msg.text());
-      }
-    });
+    await applyMeetPermissions(browser, runtimeConfig);
+    const page = await acquirePage(browser, runtimeConfig);
 
     if (config.mode === MODES.DEFAULT) {
       outputFile = path.join(outputDir, `recording-${Date.now()}.webm`);

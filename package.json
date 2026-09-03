@@ -8,7 +8,9 @@
     "start": "node bot.js",
     "test": "node --test test/*.test.js",
     "benchmark:mock": "node scripts/benchmark-modes.js",
-    "loadtest:chat-only": "node scripts/load-test-chat-only.js"
+    "benchmark:chromium": "node scripts/benchmark-chromium-profiles.js",
+    "loadtest:chat-only": "node scripts/load-test-chat-only.js",
+    "fleet:local": "node scripts/run-fleet.js"
   },
   "keywords": [],
   "author": "",

@@ -2,19 +2,42 @@
 <html lang="en">
   <head><meta charset="utf-8"><title>Mock Meet Chat</title></head>
   <body>
+    <button aria-label="Turn off camera">Camera</button>
+    <button aria-label="Turn off microphone">Mic</button>
+    <input type="text" placeholder="Your name" />
+    <button>Ask to join</button>
     <button aria-label="Chat with everyone">Chat</button>
     <div id="chat-panel" hidden>
+      <div id="chat-list" aria-live="polite"></div>
       <textarea aria-label="Send a message to everyone"></textarea>
       <button aria-label="Send a message">Send</button>
     </div>
     <button aria-label="Leave call">Leave</button>
     <script>
+      const list = document.getElementById('chat-list');
+      for (let i = 1; i <= 8; i += 1) {
+        const item = document.createElement('div');
+        item.className = 'chat-message';
+        item.dataset.messageText = 'seed-' + i;
+        item.textContent = 'seed-' + i;
+        list.appendChild(item);
+      }
+
       document.querySelector('[aria-label="Chat with everyone"]').addEventListener('click', () => {
         document.getElementById('chat-panel').hidden = false;
       });
       document.querySelector('[aria-label="Send a message"]').addEventListener('click', () => {
-        window.__lastMessage = document.querySelector('textarea').value;
+        const value = document.querySelector('textarea').value;
+        window.__lastMessage = value;
+        const item = document.createElement('div');
+        item.className = 'chat-message';
+        item.dataset.messageText = value;
+        item.textContent = value;
+        list.appendChild(item);
         document.querySelector('textarea').value = '';
+      });
+      document.querySelector('[aria-label="Leave call"]').addEventListener('click', () => {
+        window.__left = true;
       });
     </script>
   </body>

@@ -52,4 +52,15 @@ describe('config', () => {
       /CHAT_INTERVAL_MS must be at least 1000/,
     );
   });
+
+  it('loads chat-only resource defaults', () => {
+    const config = loadConfig({ MODE: 'chat-only', BOT_INDEX: '4', STARTUP_CONCURRENCY: '2' });
+    assert.equal(config.chromiumProfile, 'chat-slim');
+    assert.equal(config.window.raw, '800x600');
+    assert.equal(config.chatHistoryLimit, 20);
+    assert.equal(config.startupStaggerMs, 2500);
+    assert.equal(config.startupConcurrency, 2);
+    assert.equal(config.botIndex, 4);
+    assert.equal(config.navigationWaitUntil, 'domcontentloaded');
+  });
 });

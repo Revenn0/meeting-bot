@@ -66,6 +66,48 @@ Messages are sent via send button click or Enter key dispatch. Each bot instance
 - Scheduler stop clears pending timers before leave
 - `finally` in `bot.js` always closes the browser
 
+### Resource optimizations (chat-only)
+
+A controlled live run of 25 simultaneous Chromiums reached Meet, dropped available RAM 10.47→3.09 GiB, showed peak single-process RSS 276 MiB, ~266 processes, and aborted at 98–100% CPU before admission/chat. The following changes target that failure **without** sharing identities or adding stealth.
+
+| Lever | What changed | Why it is safe for isolated guests |
+|---|---|---|
+| Startup gate | `STARTUP_CONCURRENCY=2`, `STARTUP_STAGGER_MS=2500`, `BOT_INDEX` | Same guests, just not all forking Chromium at once |
+| Process model | `--renderer-process-limit=1`, `--no-zygote`, GPU/audio in-process or off | One browser per `BOT_NAME` still; fewer children per browser |
+| Unused services | extensions, sync, translate, crashpad, metrics, caches | Not required for guest chat |
+| Pages/listeners | Reuse `about:blank`; no console hook unless `DEBUG_BROWSER_LOGS` | One page per guest |
+| Permissions | Do not grant camera/mic | Matches camera/mic-off join |
+| Media suppress | Deny `getUserMedia` / `getDisplayMedia`; stop remote tracks | Meet can still create PCs for presence; we do not record |
+| Chat bound | Keep last `CHAT_HISTORY_LIMIT` nodes; read that snapshot before send | Chat still readable |
+| Navigation | `domcontentloaded` instead of `networkidle2` | Faster join; selectors still wait |
+
+**Architectural floor:** each guest still needs its own Chromium (separate cookie jar / display name). Sharing one authenticated browser would violate the identity requirement. `--single-process` is the process-count floor (1 child) but is **opt-in only** (`CHROMIUM_PROFILE=chat-single-process`) because WebRTC inside a single process is historically crashy. Default is `chat-slim`.
+
+Local mock (file://) before/after — see README tables. Further flag tweaks did not move PSS more than noise once GPU/zygote/site-isolation were already off.
+
+### Chromium flags
+
+Every flag is documented in `lib/chromium-flags.js` (`CHROMIUM_FLAG_DOCS`). Set `DEBUG_BROWSER_LOGS=true` to print flag + reason at launch. None of the new flags spoof UA, hide webdriver, or evade Meet.
+
+Profiles:
+
+- `recording` — original default-mode flags only
+- `chat-legacy` — previous chat-only args (A/B)
+- `chat-slim` — default chat-only
+- `chat-single-process` — slim + `--single-process`
+
+### Next controlled live-validation plan
+
+Do **not** start 25 browsers at once. On a host you control:
+
+1. One `chat-slim` guest: confirm admit, camera/mic off, chat open, send/read, leave.
+2. Three guests with `STARTUP_CONCURRENCY=2` and unique `BOT_NAME`s.
+3. If stable, five guests. Record `/proc` process count, PSS, and CPU during **startup only**.
+4. Only then consider 10–25 with the same stagger (≈12–13 waves × 2.5s). Abort if available RAM < 2 GiB or CPU > 85% for 15s.
+5. Optional: try `chat-single-process` on **two** guests only. If Meet crashes or cannot be admitted, stay on `chat-slim`.
+
+`npm run fleet:local` refuses `meet.google.com` unless `ALLOW_LIVE_MEET=true`.
+
 ## Default mode (unchanged behavior)
 
 The recording path remains the original design:
