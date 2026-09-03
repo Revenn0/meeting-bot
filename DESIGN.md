@@ -58,6 +58,8 @@ This is the **in-call Meet chat**, not a page overlay. `lib/meet-selectors.js` m
 
 `waitUntilInCall` polls until **Leave call** is visible and **Join now** is gone. Waiting-room copy is **not** in-call.
 
+Open rooms show "This call is open to anyone" plus a visible **Join now** / **Entrar**. Meet often keeps a hidden/aria-hidden **Ask to join** in the DOM. Join logic must click only a strictly visible enabled Join now, never an offscreen Ask to join, and retry Join now once if the guest is still on prejoin.
+
 Each bot uses a distinct `BOT_NAME`.
 
 ### Cleanup and timeouts

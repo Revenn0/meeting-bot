@@ -79,7 +79,7 @@ Same thing:
 | Symptom | What to do |
 |---|---|
 | `Set MEET_URL in .env` | Put a real `https://meet.google.com/...` link, not `YOUR-MEET-CODE`. |
-| Stuck on pre-join / no Leave call | Room not open or host must admit. Keep the host tab open. |
+| Stuck on pre-join / no Leave call | Room not open or host must admit. Keep the host tab open. The bot prefers visible **Join now** / **Entrar** and ignores hidden **Ask to join**. |
 | `Could not open the official Meet chat panel` | Use `WINDOW_SIZE=1280x720` and headful. Chat may sit under **More options**. UI changes: screenshot lands in `output/`. |
 | `you can't join this video call` | Google blocked headless/automation. Stay `HEADLESS=false`. |
 | Headless vs headful | Headful (`false`) is the reliable PC path. Headless often fails Meet's join checks. |
@@ -107,7 +107,7 @@ O bot entra como convidado com **câmera e microfone desligados**, espera a UI *
 | Sintoma | O que fazer |
 |---|---|
 | `Set MEET_URL in .env` | Coloque o link real da sala, não o placeholder. |
-| Não entra / não aparece Sair da chamada | Sala fechada ou host precisa admitir. Deixe a aba do host aberta. |
+| Não entra / não aparece Sair da chamada | Sala fechada ou host precisa admitir. Deixe a aba do host aberta. O bot prefere **Entrar agora / Join now** visível e ignora **Pedir para participar** oculto. |
 | Não abre o chat oficial | Janela 1280×720, modo visível. O chat pode estar em **Mais opções**. |
 | Bloqueio do Meet | Use `HEADLESS=false`. |
 | UI do Meet mudou | Veja o PNG em `output/` e os rótulos no erro. |

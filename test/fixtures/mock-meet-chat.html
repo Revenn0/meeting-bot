@@ -3,9 +3,11 @@
   <head><meta charset="utf-8"><title>Mock Meet Chat</title></head>
   <body>
     <section id="prejoin">
+      <p id="open-banner" hidden>This call is open to anyone</p>
       <button id="cam-off" aria-label="Turn off camera">Camera</button>
       <button id="mic-off" aria-label="Turn off microphone">Mic</button>
       <input id="guest-name" type="text" placeholder="Your name" aria-label="Your name" />
+      <button id="ask-hidden" aria-hidden="true" style="position:absolute;left:-9999px;top:0;width:140px;height:40px">Ask to join</button>
       <button id="join-now">Join now</button>
     </section>
 
@@ -77,8 +79,26 @@
         window.__phase = 'waiting';
       }
 
+      window.__joinClicks = 0;
+      window.__askClicks = 0;
+
+      if (variant === 'open-banner' || variant === 'hidden-ask' || variant === 'sticky-prejoin' || variant === 'entrar') {
+        document.getElementById('open-banner').hidden = false;
+      }
+      if (variant === 'entrar') {
+        document.getElementById('join-now').textContent = 'Entrar';
+      }
+
+      document.getElementById('ask-hidden').addEventListener('click', () => {
+        window.__askClicks += 1;
+      });
+
       document.getElementById('join-now').addEventListener('click', () => {
         window.__joinClicked = true;
+        window.__joinClicks += 1;
+        if (variant === 'sticky-prejoin' && window.__joinClicks < 2) {
+          return;
+        }
         setTimeout(() => {
           if (variant === 'waiting') enterWaiting();
           else enterInCall();

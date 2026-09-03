@@ -3,7 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import puppeteer from 'puppeteer';
-import { joinMeetAsGuest } from '../lib/meet-join.js';
+import { classifyJoinLabel } from '../lib/meet-selectors.js';
+import { clickVisibleJoinControl, joinMeetAsGuest } from '../lib/meet-join.js';
 import { openChatPanel, sendChatMessage } from '../lib/meet-chat.js';
 import { inspectMeetState, waitUntilInCall } from '../lib/meet-state.js';
 import { matchesAnyKeyword } from '../lib/meet-selectors.js';
@@ -29,6 +30,14 @@ describe('meet keywords', () => {
     assert.equal(matchesAnyKeyword('Chat with everyone', ['chat with everyone']), true);
     assert.equal(matchesAnyKeyword('Conversar com todos', ['conversar com todos']), true);
     assert.equal(matchesAnyKeyword('Join now', ['join now', 'ask to join']), true);
+  });
+
+  it('classifies Join now / Entrar above Ask to join', () => {
+    assert.equal(classifyJoinLabel('Join now'), 'join-now');
+    assert.equal(classifyJoinLabel('Entrar'), 'join-now');
+    assert.equal(classifyJoinLabel('Ask to join'), 'ask-to-join');
+    assert.equal(classifyJoinLabel('Pedir para participar'), 'ask-to-join');
+    assert.equal(classifyJoinLabel('Ask to join now please'), 'ask-to-join');
   });
 });
 
@@ -56,6 +65,8 @@ describe('in-call detection', () => {
 
   it('confirms in-call only after Leave call appears', async () => {
     await withPage('?delay=80', async (page) => {
+      const before = await inspectMeetState(page);
+      assert.equal(before.phase, 'prejoin');
       await joinMeetAsGuest(page, {
         meetUrl: `file://${fixture}?delay=80`,
         botName: 'One Bot',
@@ -63,11 +74,56 @@ describe('in-call detection', () => {
         outputDir: '/tmp',
         waitUntil: 'domcontentloaded',
       });
-      const before = await inspectMeetState(page);
-      assert.notEqual(before.phase, 'in-call');
       const after = await waitUntilInCall(page, { timeoutMs: 2000, outputDir: '/tmp', pollMs: 50 });
       assert.equal(after.phase, 'in-call');
       assert.equal(after.hasLeaveCall, true);
+    });
+  });
+});
+
+describe('join now preference', () => {
+  it('clicks visible Join now and ignores hidden Ask to join', async () => {
+    await withPage('?variant=hidden-ask&delay=40', async (page) => {
+      await joinMeetAsGuest(page, {
+        meetUrl: `file://${fixture}?variant=hidden-ask&delay=40`,
+        botName: 'Open Room Bot',
+        joinTimeoutMs: 3000,
+        outputDir: '/tmp',
+        waitUntil: 'domcontentloaded',
+      });
+      const clicks = await page.evaluate(() => ({
+        join: window.__joinClicks,
+        ask: window.__askClicks,
+      }));
+      assert.equal(clicks.ask, 0);
+      assert.ok(clicks.join >= 1);
+      const after = await waitUntilInCall(page, { timeoutMs: 2000, outputDir: '/tmp', pollMs: 40 });
+      assert.equal(after.phase, 'in-call');
+    });
+  });
+
+  it('retries Join now once if the first click leaves the guest on prejoin', async () => {
+    await withPage('?variant=sticky-prejoin&delay=40', async (page) => {
+      await joinMeetAsGuest(page, {
+        meetUrl: `file://${fixture}?variant=sticky-prejoin&delay=40`,
+        botName: 'Retry Bot',
+        joinTimeoutMs: 3000,
+        outputDir: '/tmp',
+        waitUntil: 'domcontentloaded',
+      });
+      const clicks = await page.evaluate(() => window.__joinClicks);
+      assert.equal(clicks, 2);
+      const after = await waitUntilInCall(page, { timeoutMs: 2000, outputDir: '/tmp', pollMs: 40 });
+      assert.equal(after.phase, 'in-call');
+    });
+  });
+
+  it('does not report hidden Ask to join as a clickable control', async () => {
+    await withPage('?variant=hidden-ask', async (page) => {
+      const probe = await clickVisibleJoinControl(page, { joinNowOnly: true });
+      assert.equal(probe.kind, 'join-now');
+      assert.equal(probe.ignoredHiddenAsk, true);
+      assert.match(probe.clicked, /join now|entrar/i);
     });
   });
 });
