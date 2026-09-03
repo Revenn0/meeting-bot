@@ -1,10 +1,19 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { describe, it } from 'node:test';
-import { BOT_EXIT, classifyChildExit, exitCodeForError, MeetBlockedError } from '../lib/bot-result.js';
+import {
+  BOT_EXIT,
+  classifyChildExit,
+  exitCodeForError,
+  MeetBlockedError,
+  parseBotJoinLine,
+} from '../lib/bot-result.js';
 import {
   assertFleetAllowed,
+  estimateJoinWaitMs,
+  estimateMinRecordSeconds,
   planWaves,
+  shouldAdvanceAfterJoins,
   shouldHardStopWave,
   summarizeWave,
 } from '../lib/wave-planner.js';
@@ -47,6 +56,31 @@ describe('wave planner', () => {
     assert.equal(summary.inCall, 2);
     assert.equal(summary.blocked, 6);
     assert.equal(summary.hardStop, true);
+    assert.equal(shouldAdvanceAfterJoins(summary), false);
+  });
+
+  it('estimates join wait and minimum RECORD_SECONDS for overlapping waves', () => {
+    assert.equal(estimateJoinWaitMs({
+      joinTimeoutMs: 30000,
+      admitWaitMs: 20000,
+      bufferMs: 20000,
+    }), 70000);
+    assert.ok(estimateMinRecordSeconds({
+      waveCount: 10,
+      joinWaitMs: 70000,
+      wavePauseMs: 8000,
+      marginSeconds: 60,
+    }) >= 800);
+  });
+});
+
+describe('bot-join protocol', () => {
+  it('parses [bot-join] even when the fleet prefixes the line', () => {
+    const parsed = parseBotJoinLine('[PC1-3] [bot-join] {"status":"in-call","botName":"PC1-3"}');
+    assert.equal(parsed.status, 'in-call');
+    assert.equal(parsed.botName, 'PC1-3');
+    assert.equal(parseBotJoinLine('[join] still on prejoin'), null);
+    assert.equal(parseBotJoinLine('[bot-join] {"status":"nope"}'), null);
   });
 });
 

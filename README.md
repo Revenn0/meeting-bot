@@ -124,21 +124,21 @@ The mock fixture covers pre-join, waiting room (must **not** count as in-call), 
 
 **Live validation always needs an open Meet link.** Automated tests never contact Google.
 
-## Scale: 10 → 100 real guests
+## Scale: local fleet (one PC, ~10–25 guests)
 
-Every guest must really join (Leave call) and use official chat when possible. See **`FLEET.md`** for full runbooks.
+Every guest must really join (**Leave call** visible) and use official chat when possible. The fleet starts the **next wave after this wave joins**, so two local waves can overlap. See **`FLEET.md`**.
 
 | Command | What it does |
 |---|---|
-| `npm run bot:one` | One PC guest |
-| `npm run fleet:10` | One wave of 10 (needs `CONFIRM_LIVE=true` + `MEET_URL`) |
-| `npm run fleet:100` | Ten waves of 10 — **gated**; needs `CONFIRM_LIVE=true` + real `MEET_URL` |
+| `npm run bot:one` | One PC guest (install / sanity) |
+| `npm run fleet:10` | One local wave of 10 (`CONFIRM_LIVE=true` + `MEET_URL`) |
+| `npm run fleet:100` | Gated only — **not** the supported laptop path |
 
 Hard-stop if ≥50% of a wave hits **You can't join**. Stay in-call even if chat fails.
 
-**A) One PC (~20):** 16–32 GiB RAM, ~0.4 GiB unique/bot. `bot:one` → `fleet:10` → optional second wave with `FLEET_OFFSET=10`.
+**Supported path:** one 16–32 GiB PC, ~0.4 GiB unique/bot. `bot:one` → `fleet:10` → optional second local wave with `FLEET_OFFSET=10` while the first is still in-call (`RECORD_SECONDS` ≥ 300). Stop around 20–25 guests when RAM/CPU saturates.
 
-**B) Modal/cloud (100+):** budget **1.0–1.5 GiB/bot** or 5 machines × 20. Unique `BOT_NAME_PREFIX` + `FLEET_OFFSET`. Do not run `fleet:100` from CI.
+Modal/cloud scale-out is **out of scope** for this PR (see the short appendix in `FLEET.md`). Do not burn Modal from CI.
 
 ---
 
@@ -166,7 +166,12 @@ See `DESIGN.md` for Chromium flags, stagger, and resource notes. Do not stress-t
 | `CHAT_INTERVAL_MS` | `5000` | ≥ 1000 |
 | `RECORD_SECONDS` | `15` (`60` in `.env.example`) | How long to stay |
 | `HEADLESS` | `false` on `npm start` | `true` hides Chrome |
-| `WINDOW_SIZE` | `1280x720` on `npm start` | Keep large so chat is not overflowed |
+| `WINDOW_SIZE` | `1280x720` on `npm start` / fleet | Keep large so chat is not overflowed |
+| `CONFIRM_LIVE` | unset | Required for `fleet:10` / `fleet:100` |
+| `BOT_NAME_PREFIX` | `Fleet` | Unique guest names `{prefix}-{n}` |
+| `FLEET_OFFSET` | `0` | Extra machine start index |
+| `STARTUP_CONCURRENCY` | `2` | Max Chromiums launching at once |
+| `STARTUP_STAGGER_MS` | `0` (fleet) | Optional delay between launch slots |
 
 ## License
 

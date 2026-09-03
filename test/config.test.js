@@ -63,4 +63,9 @@ describe('config', () => {
     assert.equal(config.botIndex, 4);
     assert.equal(config.navigationWaitUntil, 'domcontentloaded');
   });
+
+  it('accepts an isolated USER_DATA_DIR per guest', () => {
+    const config = loadConfig({ MODE: 'chat-only', USER_DATA_DIR: '/tmp/meet-bot-profiles/PC1-1' });
+    assert.equal(config.userDataDir, '/tmp/meet-bot-profiles/PC1-1');
+  });
 });
