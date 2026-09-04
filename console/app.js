@@ -5,8 +5,14 @@ import { createSettingsStore } from './settings-store.js';
 import { createOpenRouter } from './openrouter.js';
 import { createSessionController } from './session-controller.js';
 import { parseMeetUrl } from '../lib/meet-url.js';
-import { MAX_FLEET_SIZE } from '../lib/wave-planner.js';
-import { buildLocalPhrases, audiencePhrasePrompt, parseGeneratedPhrases, TONES } from './phrases.js';
+import { MAX_FLEET_SIZE, assertFleetSize } from '../lib/wave-planner.js';
+import {
+  TONES,
+  briefToFleetPrompt,
+  buildLocalFleet,
+  defaultGuestNames,
+  parseFleetAssignment,
+} from './phrases.js';
 import { buildDebriefPrompt, buildSessionStats, formatDebriefExport } from './debrief.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -64,6 +70,7 @@ export function createPlateiaApp({
       if (body.recordSeconds !== undefined) patch.recordSeconds = Number(body.recordSeconds);
       if (body.chatIntervalMs !== undefined) patch.chatIntervalMs = Number(body.chatIntervalMs);
       if (body.showChrome !== undefined) patch.showChrome = Boolean(body.showChrome);
+      if (body.enrichPhrases !== undefined) patch.enrichPhrases = Boolean(body.enrichPhrases);
       const saved = settingsStore.save(patch);
       res.json({ ok: true, settings: settingsStore.publicView(saved) });
     } catch (error) {
@@ -121,41 +128,151 @@ export function createPlateiaApp({
     res.json(parseMeetUrl(req.body?.meetUrl));
   });
 
+  async function resolveFleetFromBrief({
+    brief,
+    tone,
+    extraPhrases,
+    botCount,
+    botNamePrefix,
+    enrichPhrases,
+  }) {
+    const count = assertFleetSize(botCount);
+    const names = defaultGuestNames(count, botNamePrefix);
+    const topic = String(brief || '').trim();
+    const local = buildLocalFleet({
+      brief: topic,
+      tone,
+      extraPhrases,
+      botCount: count,
+      botNames: names,
+    });
+    const wantEnrich = enrichPhrases !== false;
+    const settings = settingsStore.load();
+    const hasAi = Boolean(settings.openrouterApiKey && settings.model);
+
+    if (wantEnrich && !topic) {
+      const error = new Error(
+        'Escreve o brief da apresentação para a IA gerar falas distintas por convidado.',
+      );
+      error.status = 400;
+      error.code = 'BRIEF_REQUIRED';
+      throw error;
+    }
+
+    if (!wantEnrich || !hasAi) {
+      const warning = wantEnrich && !hasAi
+        ? 'Sem chave ou modelo OpenRouter — a usar banco local a partir do brief.'
+        : '';
+      return {
+        fleet: { ...local, source: 'local' },
+        source: 'local',
+        model: '',
+        warning,
+        enriched: false,
+      };
+    }
+
+    try {
+      const generated = await openrouter.complete({
+        apiKey: settings.openrouterApiKey,
+        model: settings.model,
+        maxTokens: 2000,
+        temperature: 0.6,
+        messages: [
+          {
+            role: 'system',
+            content: 'Devolve só JSON válido com falas de plateia. Sem markdown, sem prosa.',
+          },
+          {
+            role: 'user',
+            content: briefToFleetPrompt({
+              brief: topic,
+              tone,
+              extraPhrases,
+              botCount: count,
+              botNames: names,
+            }),
+          },
+        ],
+      });
+      const fleet = parseFleetAssignment(generated.text, {
+        botCount: count,
+        botNames: names,
+        fallback: local,
+        tone,
+      });
+      if (fleet.parsed === 'fallback') {
+        return {
+          fleet: { ...local, source: 'local' },
+          source: 'local',
+          model: generated.model || settings.model,
+          warning: 'O modelo não devolveu falas válidas — a usar banco local.',
+          enriched: false,
+        };
+      }
+      return {
+        fleet: { ...fleet, source: 'openrouter' },
+        source: 'openrouter',
+        model: generated.model || settings.model,
+        warning: '',
+        enriched: true,
+      };
+    } catch (error) {
+      const warning = `OpenRouter falhou — a usar banco local. ${error.message}`;
+      console.warn('[plateia] phrase enrich skipped:', error.message);
+      return {
+        fleet: { ...local, source: 'local' },
+        source: 'local',
+        model: settings.model,
+        warning,
+        enriched: false,
+      };
+    }
+  }
+
   app.get('/api/session', (_req, res) => {
     res.json({ ok: true, session: session.snapshot() });
+  });
+
+  app.post('/api/phrases/preview', async (req, res) => {
+    try {
+      const settings = settingsStore.load();
+      const body = req.body || {};
+      const resolved = await resolveFleetFromBrief({
+        brief: body.brief,
+        tone: body.tone || settings.lastTone,
+        extraPhrases: body.extraPhrases,
+        botCount: body.botCount || settings.lastBotCount,
+        botNamePrefix: body.botNamePrefix || settings.botNamePrefix,
+        enrichPhrases: body.enrichPhrases,
+      });
+      res.json({
+        ok: true,
+        source: resolved.source,
+        model: resolved.model,
+        warning: resolved.warning,
+        enriched: resolved.enriched,
+        bots: resolved.fleet.bots,
+      });
+    } catch (error) {
+      sendError(res, error, error.status || 400);
+    }
   });
 
   app.post('/api/session/start', async (req, res) => {
     try {
       const settings = settingsStore.load();
       const body = req.body || {};
-      let phrases = buildLocalPhrases({
+      const resolved = await resolveFleetFromBrief({
         brief: body.brief,
         tone: body.tone || settings.lastTone,
         extraPhrases: body.extraPhrases,
-        count: body.botCount || settings.lastBotCount,
+        botCount: body.botCount || settings.lastBotCount,
+        botNamePrefix: body.botNamePrefix || settings.botNamePrefix,
+        enrichPhrases: body.enrichPhrases,
       });
-      if (settings.openrouterApiKey && settings.model && body.enrichPhrases !== false) {
-        try {
-          const generated = await openrouter.complete({
-            apiKey: settings.openrouterApiKey,
-            model: settings.model,
-            maxTokens: 400,
-            temperature: 0.7,
-            messages: [{
-              role: 'user',
-              content: audiencePhrasePrompt({
-                brief: body.brief,
-                tone: body.tone || settings.lastTone,
-                extraPhrases: body.extraPhrases,
-                count: body.botCount || settings.lastBotCount,
-              }),
-            }],
-          });
-          phrases = parseGeneratedPhrases(generated.text, phrases);
-        } catch (error) {
-          console.warn('[plateia] phrase enrich skipped:', error.message);
-        }
+      if (body.enrichPhrases !== undefined || resolved.enriched) {
+        settingsStore.save({ enrichPhrases: body.enrichPhrases !== false });
       }
       const snap = await session.start({
         meetUrl: body.meetUrl,
@@ -167,11 +284,19 @@ export function createPlateiaApp({
         chatIntervalMs: body.chatIntervalMs ?? settings.chatIntervalMs,
         botNamePrefix: body.botNamePrefix || settings.botNamePrefix,
         showChrome: body.showChrome ?? settings.showChrome,
-        phrases,
+        fleet: resolved.fleet,
+        phrases: resolved.fleet.bots.map((bot) => bot.messages[0]),
+        phraseSource: resolved.source,
+        phraseWarning: resolved.warning,
       });
-      res.json({ ok: true, session: snap });
+      res.json({
+        ok: true,
+        session: snap,
+        source: resolved.source,
+        warning: resolved.warning,
+      });
     } catch (error) {
-      sendError(res, error);
+      sendError(res, error, error.status || 400);
     }
   });
 

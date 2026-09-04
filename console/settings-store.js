@@ -33,6 +33,7 @@ export function emptySettings() {
     recordSeconds: 180,
     chatIntervalMs: 8000,
     showChrome: true,
+    enrichPhrases: true,
     lastModels: [],
     lastModelsAt: 0,
   };
@@ -118,6 +119,7 @@ export function createSettingsStore({ root, userDataDir, env = process.env } = {
     recordSeconds: settings.recordSeconds,
     chatIntervalMs: settings.chatIntervalMs,
     showChrome: settings.showChrome !== false,
+    enrichPhrases: settings.enrichPhrases !== false,
     lastModels: settings.lastModels || [],
     lastModelsAt: settings.lastModelsAt || 0,
     userDataDir: dir,

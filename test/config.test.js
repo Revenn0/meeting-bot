@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { loadConfig, normalizeMode, MODES, isChatOnlyMode } from '../lib/config.js';
+import { pickRotatedMessage, parseChatMessagesJson } from '../lib/chat-messages.js';
 
 describe('config', () => {
   it('defaults to recording mode', () => {
@@ -67,5 +68,19 @@ describe('config', () => {
   it('accepts an isolated USER_DATA_DIR per guest', () => {
     const config = loadConfig({ MODE: 'chat-only', USER_DATA_DIR: '/tmp/meet-bot-profiles/PC1-1' });
     assert.equal(config.userDataDir, '/tmp/meet-bot-profiles/PC1-1');
+  });
+
+  it('loads a per-bot chat script from CHAT_MESSAGES_JSON', () => {
+    const config = loadConfig({
+      MODE: 'chat-only',
+      CHAT_MESSAGE: 'primeira',
+      CHAT_MESSAGES_JSON: JSON.stringify(['primeira', 'segunda', 'terceira']),
+    });
+    assert.deepEqual(config.chatMessages, ['primeira', 'segunda', 'terceira']);
+    assert.equal(config.chatMessage, 'primeira');
+    assert.equal(pickRotatedMessage(config.chatMessages, 0), 'primeira');
+    assert.equal(pickRotatedMessage(config.chatMessages, 1), 'segunda');
+    assert.equal(pickRotatedMessage(config.chatMessages, 3), 'primeira');
+    assert.deepEqual(parseChatMessagesJson('not-json'), []);
   });
 });

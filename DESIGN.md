@@ -19,7 +19,8 @@ Build a meeting bot that:
 
 Configuration lives in `lib/config.js`. Existing env vars (`MEET_URL`, `BOT_NAME`, `RECORD_SECONDS`, `HEADLESS`, `PUPPETEER_EXECUTABLE_PATH`) are unchanged. Chat-only adds:
 
-- `CHAT_MESSAGE` — short text to send (default `Hello`, max 500 chars)
+- `CHAT_MESSAGE` — short text to send (default `Hello`, max 500 chars); first line of the per-bot script
+- `CHAT_MESSAGES_JSON` — optional JSON array of 2–4 lines; chat-only rotates on each interval
 - `CHAT_INTERVAL_MS` — minimum spacing between sends (default `5000`, minimum `1000`)
 
 `RECORD_SECONDS` doubles as chat-only session duration so the CLI contract stays stable.

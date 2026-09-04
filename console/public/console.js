@@ -36,6 +36,14 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 async function api(path, options = {}) {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
@@ -183,13 +191,56 @@ function applySettings(settings) {
   if (settings.extraPhrases) $('extraPhrases').value = settings.extraPhrases;
   if (settings.recordSeconds) $('recordSeconds').value = settings.recordSeconds;
   $('showChrome').checked = settings.showChrome !== false;
+  syncEnrichState(settings);
   renderTones();
+}
+
+function syncEnrichState(settings = state.settings) {
+  const box = $('enrichPhrases');
+  const hint = $('enrichHint');
+  const wrap = $('enrichWrap');
+  const hasKey = Boolean(settings?.hasKey && settings?.model);
+  if (!box) return;
+  if (hasKey) {
+    box.disabled = false;
+    box.checked = settings.enrichPhrases !== false;
+    wrap?.classList.remove('is-off');
+    if (hint) hint.textContent = settings.model
+      ? `Modelo: ${settings.model}. O brief é obrigatório.`
+      : '';
+  } else {
+    box.disabled = true;
+    box.checked = false;
+    wrap?.classList.add('is-off');
+    if (hint) {
+      hint.textContent = 'Cola a chave OpenRouter e escolhe um modelo grátis no onboarding para gerar falas com IA.';
+    }
+  }
 }
 
 function setCount(n) {
   const value = Math.max(1, Math.min(15, Number(n) || 1));
   $('botCount').value = value;
   $('botSlider').value = value;
+}
+
+function renderPhrasePreview(data) {
+  const panel = $('phrasePreview');
+  const list = $('phrasePreviewList');
+  const meta = $('phrasePreviewMeta');
+  if (!panel || !list) return;
+  panel.hidden = false;
+  const source = data.source === 'openrouter' ? 'OpenRouter' : 'banco local';
+  meta.textContent = [
+    data.model ? `${data.model} · ${source}` : source,
+    data.warning || '',
+  ].filter(Boolean).join(' — ');
+  list.innerHTML = (data.bots || []).map((bot) => `
+    <div class="preview-bot">
+      <strong>${escapeHtml(bot.name)}</strong>
+      <ol>${(bot.messages || []).map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ol>
+    </div>
+  `).join('');
 }
 
 function countersHtml(c = {}) {
@@ -223,8 +274,9 @@ function renderSession(session) {
   $('debriefCounters').innerHTML = countersHtml(counters);
   $('botGrid').innerHTML = (session.bots || []).map((bot) => `
     <div class="bot" data-status="${bot.status}">
-      <strong>${bot.name}</strong>
+      <strong>${escapeHtml(bot.name)}</strong>
       <div class="st">${STATUS_LABEL[bot.status] || bot.status}${bot.sent ? ` · ${bot.sent} msg` : ''}</div>
+      ${bot.messages?.[0] ? `<div class="line">${escapeHtml(bot.messages[0])}</div>` : ''}
     </div>
   `).join('');
 
@@ -366,36 +418,91 @@ function bind() {
   $('countPlus').addEventListener('click', () => setCount(Number($('botCount').value) + 1));
   $('botCount').addEventListener('input', () => setCount($('botCount').value));
   $('botSlider').addEventListener('input', () => setCount($('botSlider').value));
+  $('enrichPhrases')?.addEventListener('change', () => {
+    if (!state.settings?.hasKey) return;
+    api('/api/settings', {
+      method: 'POST',
+      body: { enrichPhrases: $('enrichPhrases').checked },
+    }).catch(() => {});
+  });
   $('meetUrl').addEventListener('blur', () => validateMeet().catch(() => {}));
   $('meetUrl').addEventListener('input', () => {
     $('meetHint').className = 'hint';
     $('meetHint').textContent = 'Sala aberta, aba do host ligada.';
+  });
+  $('previewPhrases')?.addEventListener('click', async () => {
+    $('setupError').hidden = true;
+    const panel = $('phrasePreview');
+    const list = $('phrasePreviewList');
+    const meta = $('phrasePreviewMeta');
+    try {
+      const enrich = Boolean($('enrichPhrases')?.checked);
+      const brief = $('brief').value;
+      if (enrich && !brief.trim()) {
+        throw new Error('Escreve o brief da apresentação para a IA gerar falas distintas por convidado.');
+      }
+      meta.textContent = enrich ? 'A gerar falas com o modelo…' : 'A montar falas locais…';
+      panel.hidden = false;
+      list.innerHTML = '';
+      const data = await api('/api/phrases/preview', {
+        method: 'POST',
+        body: {
+          brief,
+          tone: state.tone,
+          extraPhrases: $('extraPhrases').value,
+          botCount: Number($('botCount').value),
+          enrichPhrases: enrich,
+        },
+      });
+      renderPhrasePreview(data);
+    } catch (error) {
+      $('setupError').hidden = false;
+      $('setupError').textContent = error.message;
+    }
   });
   $('startSession').addEventListener('click', async () => {
     $('setupError').hidden = true;
     try {
       const meet = await validateMeet();
       if (!meet.ok) throw new Error(meet.error);
+      const enrich = Boolean($('enrichPhrases')?.checked);
+      const brief = $('brief').value;
+      if (enrich && !brief.trim()) {
+        throw new Error('Escreve o brief da apresentação para a IA gerar falas distintas por convidado.');
+      }
       setLaunchVeil(true);
+      $('launchTitle').innerHTML = enrich
+        ? '<span class="soft">A gerar</span> falas'
+        : '<span class="soft">A entrar em</span> ensaio';
+      $('launchLede').textContent = enrich
+        ? 'A gerar falas com o modelo…'
+        : 'Os convidados estão a abrir o Meet.';
       setBar('launchFill', 'launchMeta', 6, '6%');
-      const motion = animateBar('launchFill', 'launchMeta', { from: 6, to: 86, ms: 1400 });
+      const motion = animateBar('launchFill', 'launchMeta', { from: 6, to: 86, ms: 1800 });
       const data = await api('/api/session/start', {
         method: 'POST',
         body: {
           meetUrl: $('meetUrl').value.trim(),
           botCount: Number($('botCount').value),
-          brief: $('brief').value,
+          brief,
           tone: state.tone,
           extraPhrases: $('extraPhrases').value,
           recordSeconds: Number($('recordSeconds').value),
           showChrome: $('showChrome').checked,
+          enrichPhrases: enrich,
         },
       });
+      $('launchTitle').innerHTML = '<span class="soft">A entrar em</span> ensaio';
+      $('launchLede').textContent = 'Os convidados estão a abrir o Meet.';
       await motion;
       setBar('launchFill', 'launchMeta', 100, '100%');
       renderSession(data.session);
       showView('live');
       setLaunchVeil(false);
+      if (data.warning) {
+        $('setupError').hidden = false;
+        $('setupError').textContent = data.warning;
+      }
     } catch (error) {
       setLaunchVeil(false);
       $('setupError').hidden = false;
