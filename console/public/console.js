@@ -461,6 +461,60 @@ async function boot() {
   }
   $('modelChip').title = `Teto ${health.maxBots}`;
   pollSession();
+  applyHashPreview();
+  window.addEventListener('hashchange', applyHashPreview);
+}
+
+function applyHashPreview() {
+  const hash = location.hash.replace('#', '');
+  if (hash === 'welcome' || hash === 'onboard') {
+    showView('onboarding');
+    setOnboardStep(1);
+    return;
+  }
+  if (hash === 'key') {
+    showView('onboarding');
+    setOnboardStep(2);
+    return;
+  }
+  if (hash === 'test') {
+    showView('onboarding');
+    setOnboardStep(4);
+    setTestState('busy');
+    setBar('onboardFill', 'onboardMeta', 44, '44%');
+    return;
+  }
+  if (hash === 'ready') {
+    showView('onboarding');
+    setOnboardStep(4);
+    setTestState('ready');
+    setBar('onboardFill', 'onboardMeta', 100, 'Plateia Console');
+    return;
+  }
+  if (hash === 'live') {
+    showView('live');
+    renderSession({
+      phase: 'live',
+      meetCode: 'abc-defg-hij',
+      botCount: 6,
+      counters: {
+        launching: 1, joined: 3, chatting: 2, messagesSent: 4, error: 0, blocked: 0,
+      },
+      bots: [
+        { name: 'Ana Costa', status: 'joined', sent: 0 },
+        { name: 'Bruno Silva', status: 'chatting', sent: 2 },
+        { name: 'Carla Dias', status: 'joined', sent: 0 },
+        { name: 'Diogo Nunes', status: 'chatting', sent: 1 },
+        { name: 'Eva Rocha', status: 'joined', sent: 1 },
+        { name: 'Filipe Reis', status: 'launching', sent: 0 },
+      ],
+      log: [
+        { line: '[19:40] Ana Costa entrou na sala' },
+        { line: '[19:40] Bruno Silva enviou uma mensagem' },
+        { line: '[19:41] A plateia está a ouvir.' },
+      ],
+    });
+  }
 }
 
 boot().catch((error) => {

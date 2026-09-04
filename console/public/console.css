@@ -21,8 +21,9 @@
 html, body { height: 100%; margin: 0; }
 body {
   background:
-    radial-gradient(120% 70% at 50% -8%, #ffffff 0%, transparent 46%),
-    linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 52%, var(--bg-bottom) 100%);
+    radial-gradient(130% 70% at 50% -12%, #ffffff 0%, transparent 48%),
+    radial-gradient(120% 55% at 50% 118%, #d8dbe2 0%, transparent 52%),
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 48%, var(--bg-bottom) 100%);
   color: var(--ink);
   font-family: var(--font);
   font-size: 15px;
@@ -188,14 +189,12 @@ h2 .soft { font-weight: 500; color: var(--soft); }
 .lede { color: var(--soft); max-width: 46ch; }
 .lede strong { color: var(--ink); font-weight: 600; }
 .rules {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 28px;
-  color: var(--soft);
-  font-size: 13px;
-  max-width: 42ch;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
 }
-.rules li + li { margin-top: 6px; }
 .rules code, code {
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.92em;
@@ -261,7 +260,7 @@ input:focus, textarea:focus {
 .ghost, .linkish {
   background: transparent;
   color: var(--ink);
-  border-color: #d7dbe2;
+  border-color: #c9cdd4;
 }
 .ghost:hover, .linkish:hover { background: var(--chip); }
 .danger {
@@ -428,8 +427,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin-top: 10px
   flex-direction: column;
   align-items: center;
 }
-.calm h2 { margin: 18px 0 8px; font-size: 28px; }
-.calm .lede { margin: 0 auto 8px; }
+.calm h2 { margin: 22px 0 10px; font-size: 28px; color: var(--ink); }
+.calm h2 .soft { color: #8a8f98; font-weight: 500; }
+.calm .lede { margin: 0 auto 28px; }
 .calm .field { width: min(360px, 100%); }
 .calm .cta { margin-top: 6px; }
 .onboard-panel { width: 100%; }
@@ -461,8 +461,9 @@ body.is-onboarding .stage {
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(120% 70% at 50% -8%, #ffffff 0%, transparent 46%),
-    linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 52%, var(--bg-bottom) 100%);
+    radial-gradient(130% 70% at 50% -12%, #ffffff 0%, transparent 48%),
+    radial-gradient(120% 55% at 50% 118%, #d8dbe2 0%, transparent 52%),
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 48%, var(--bg-bottom) 100%);
 }
 .launch-veil[hidden] { display: none; }
 
