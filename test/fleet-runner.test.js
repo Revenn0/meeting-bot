@@ -93,6 +93,25 @@ describe('accumulating fleet runner', () => {
     assert.equal(result.totals.blocked, 6);
     assert.equal(result.totals['in-call'], 4);
   });
+
+  it('skips later waves when shouldAbort becomes true', async () => {
+    let launched = 0;
+    const result = await runAccumulatingFleet({
+      waves: planWaves({ total: 6, waveSize: 3, namePrefix: 'A' }),
+      launchGuest: (bot) => {
+        launched += 1;
+        return fakeGuest({ stayMs: 20 })(bot);
+      },
+      concurrency: 3,
+      staggerMs: 0,
+      wavePauseMs: 0,
+      joinTimeoutMs: 500,
+      onLog: () => {},
+      shouldAbort: () => launched >= 3,
+    });
+    assert.equal(launched, 3);
+    assert.equal(result.wavesCompleted, 1);
+  });
 });
 
 describe('fleet mock process (no Meet)', () => {
@@ -149,6 +168,6 @@ describe('fleet mock process (no Meet)', () => {
     child.stderr.on('data', (chunk) => stderr.push(chunk.toString()));
     const code = await new Promise((resolve) => child.on('close', resolve));
     assert.notEqual(code, 0);
-    assert.match(stderr.join(''), /MEET_URL|CONFIRM_LIVE|fleet:100/);
+    assert.match(stderr.join(''), /MEET_URL|CONFIRM_LIVE|fleet:100|cannot exceed 15/);
   });
 });

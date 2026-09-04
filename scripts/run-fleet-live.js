@@ -5,6 +5,7 @@ import { runAccumulatingFleet } from '../lib/fleet-runner.js';
 import { resolveFleetChildEntry, spawnLiveGuest } from '../lib/fleet-spawn.js';
 import {
   assertFleetAllowed,
+  assertFleetSize,
   estimateJoinWaitMs,
   estimateMinRecordSeconds,
   planWaves,
@@ -32,6 +33,9 @@ async function main() {
     : process.env.MEET_URL;
   const confirmLive = process.env.CONFIRM_LIVE === 'true';
 
+  if (!mock) {
+    assertFleetSize(size);
+  }
   const allowed = assertFleetAllowed({ size, meetUrl, confirmLive, mock });
   const waveSize = Number.parseInt(process.env.WAVE_SIZE || '10', 10);
   const concurrency = Number.parseInt(process.env.STARTUP_CONCURRENCY || '2', 10);

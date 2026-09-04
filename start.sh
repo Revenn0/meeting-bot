@@ -8,16 +8,14 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 if [ ! -d node_modules ]; then
-  echo "Installing dependencies..."
+  echo "A instalar dependências..."
   npm install
 fi
 
-if [ ! -f .env ]; then
-  cp .env.example .env
-  echo "Created .env from .env.example"
-  echo "Edit .env and set MEET_URL to your open Meet link, then run ./start.sh again."
-  exit 1
+mkdir -p user-data
+export PLATEIA_PORT="${PLATEIA_PORT:-8787}"
+echo "Plateia Console em http://127.0.0.1:${PLATEIA_PORT}"
+if command -v xdg-open >/dev/null 2>&1; then
+  xdg-open "http://127.0.0.1:${PLATEIA_PORT}" >/dev/null 2>&1 || true
 fi
-
-echo "Starting one CHAT_ONLY Meet guest..."
-exec node scripts/run-one-bot.js
+exec node console/index.js

@@ -98,9 +98,9 @@ describe('fleet live gate', () => {
       () => assertFleetAllowed({
         size: 100,
         meetUrl: 'https://meet.google.com/aaa-bbbb-ccc',
-        confirmLive: false,
+        confirmLive: true,
       }),
-      /fleet:100/,
+      /cannot exceed 15/,
     );
     assert.throws(
       () => assertFleetAllowed({
@@ -148,7 +148,7 @@ describe('fleet live gate', () => {
     child.stderr.on('data', (chunk) => stderr.push(chunk.toString()));
     const code = await new Promise((resolve) => child.on('close', resolve));
     assert.notEqual(code, 0);
-    assert.match(stderr.join(''), /CONFIRM_LIVE|fleet:100|MEET_URL/);
+    assert.match(stderr.join(''), /CONFIRM_LIVE|fleet:100|MEET_URL|cannot exceed 15/);
   });
 });
 
