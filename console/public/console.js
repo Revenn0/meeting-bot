@@ -31,6 +31,7 @@ const state = {
   session: null,
   tone: 'curioso',
   meetOk: false,
+  preview: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -52,12 +53,52 @@ async function api(path, options = {}) {
 
 function showView(name) {
   state.view = name;
+  document.body.classList.toggle('is-onboarding', name === 'onboarding');
   for (const section of document.querySelectorAll('.view')) {
     section.hidden = section.id !== `view-${name}`;
   }
   for (const btn of document.querySelectorAll('.nav-btn')) {
     btn.classList.toggle('on', btn.dataset.view === name);
   }
+}
+
+function setBar(fillId, metaId, pct, label) {
+  const fill = $(fillId);
+  const meta = $(metaId);
+  if (fill) fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  if (meta && label !== undefined) meta.textContent = label;
+}
+
+function animateBar(fillId, metaId, { from = 4, to = 88, ms = 1600, suffix = '%' } = {}) {
+  const start = performance.now();
+  return new Promise((resolve) => {
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / ms);
+      const eased = 1 - (1 - t) ** 3;
+      const pct = from + (to - from) * eased;
+      setBar(fillId, metaId, pct, `${Math.round(pct)}${suffix}`);
+      if (t < 1) requestAnimationFrame(tick);
+      else resolve();
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+function setTestState(mode) {
+  const idle = $('testIdle');
+  const busy = $('testBusy');
+  const ready = $('testReady');
+  if (idle) idle.hidden = mode !== 'idle';
+  if (busy) busy.hidden = mode !== 'busy';
+  if (ready) ready.hidden = mode !== 'ready';
+  $('onboardMark')?.classList.toggle('is-ready', mode === 'ready');
+  const log = $('testLog');
+  if (mode !== 'idle' && log) log.classList.remove('show');
+}
+
+function setLaunchVeil(on) {
+  const veil = $('launchVeil');
+  if (veil) veil.hidden = !on;
 }
 
 function setMeter(joined, requested = 15, live = false) {
@@ -103,6 +144,11 @@ function setOnboardStep(step) {
   [...$('onboardSteps').children].forEach((li, index) => {
     li.classList.toggle('on', index === step - 1);
   });
+  $('onboardCalm')?.classList.toggle('is-wide', step === 3);
+  if (step === 4) setTestState('idle');
+  else $('onboardMark')?.classList.remove('is-ready');
+  const pct = (step / 4) * 100;
+  setBar('onboardFill', 'onboardMeta', pct, `${step} / 4`);
 }
 
 function renderModels(models, selected) {
@@ -170,6 +216,9 @@ function renderSession(session) {
   $('railFail').textContent = String(counters.error || 0);
   $('railBlock').textContent = String(counters.blocked || 0);
 
+  const requested = session.botCount || 15;
+  setBar('liveFill', 'liveMeta', requested ? (joined / requested) * 100 : 0, `${joined} / ${requested}`);
+
   $('liveCounters').innerHTML = countersHtml(counters);
   $('debriefCounters').innerHTML = countersHtml(counters);
   $('botGrid').innerHTML = (session.bots || []).map((bot) => `
@@ -202,11 +251,23 @@ function renderSession(session) {
 
 async function refreshModels() {
   $('modelsMeta').textContent = 'A pedir lista gratuita…';
-  const data = await api('/api/models/refresh', { method: 'POST' });
-  state.models = data.models || [];
-  $('modelsMeta').textContent = `${state.models.length} modelos grátis`;
-  renderModels(state.models, state.selectedModel);
-  if (state.selectedModel) $('onboardPickModel').disabled = false;
+  const progress = $('modelsProgress');
+  if (progress) progress.hidden = false;
+  const motion = animateBar('modelsFill', 'modelsProgressMeta', { to: 86, ms: 1200 });
+  try {
+    const data = await api('/api/models/refresh', { method: 'POST' });
+    await motion;
+    setBar('modelsFill', 'modelsProgressMeta', 100, '100%');
+    state.models = data.models || [];
+    $('modelsMeta').textContent = `${state.models.length} modelos grátis`;
+    renderModels(state.models, state.selectedModel);
+    if (state.selectedModel) $('onboardPickModel').disabled = false;
+  } finally {
+    setTimeout(() => {
+      if (progress) progress.hidden = true;
+      if (state.onboardStep === 3) setBar('onboardFill', 'onboardMeta', 75, '3 / 4');
+    }, 280);
+  }
 }
 
 async function validateMeet() {
@@ -225,6 +286,7 @@ async function validateMeet() {
 
 function pollSession() {
   setInterval(async () => {
+    if (state.preview) return;
     if (!state.session || (state.session.phase !== 'live' && state.session.phase !== 'paused')) {
       return;
     }
@@ -273,16 +335,27 @@ function bind() {
     setOnboardStep(4);
   });
   $('testConnection').addEventListener('click', async () => {
-    $('testLog').textContent = 'A testar…';
+    const log = $('testLog');
+    log.textContent = '';
+    log.classList.remove('show');
+    setTestState('busy');
+    setBar('onboardFill', 'onboardMeta', 8, '8%');
+    const motion = animateBar('onboardFill', 'onboardMeta', { from: 8, to: 90, ms: 1800 });
     try {
       const data = await api('/api/connection/test', {
         method: 'POST',
         body: { model: state.selectedModel },
       });
-      $('testLog').textContent = `OK · ${data.result.model}\n${data.result.text}`;
-      $('finishOnboard').hidden = false;
+      await motion;
+      setBar('onboardFill', 'onboardMeta', 100, '100%');
+      $('readyModel').textContent = data.result?.model || state.selectedModel || 'Plateia Console';
+      setTestState('ready');
     } catch (error) {
-      $('testLog').textContent = error.message;
+      await motion.catch(() => {});
+      setTestState('idle');
+      setBar('onboardFill', 'onboardMeta', 100, '4 / 4');
+      log.textContent = error.message;
+      log.classList.add('show');
     }
   });
   $('finishOnboard').addEventListener('click', async () => {
@@ -303,6 +376,9 @@ function bind() {
     try {
       const meet = await validateMeet();
       if (!meet.ok) throw new Error(meet.error);
+      setLaunchVeil(true);
+      setBar('launchFill', 'launchMeta', 6, '6%');
+      const motion = animateBar('launchFill', 'launchMeta', { from: 6, to: 86, ms: 1400 });
       const data = await api('/api/session/start', {
         method: 'POST',
         body: {
@@ -315,9 +391,13 @@ function bind() {
           showChrome: $('showChrome').checked,
         },
       });
+      await motion;
+      setBar('launchFill', 'launchMeta', 100, '100%');
       renderSession(data.session);
       showView('live');
+      setLaunchVeil(false);
     } catch (error) {
+      setLaunchVeil(false);
       $('setupError').hidden = false;
       $('setupError').textContent = error.message;
     }
@@ -383,6 +463,61 @@ async function boot() {
   }
   $('modelChip').title = `Teto ${health.maxBots}`;
   pollSession();
+  applyHashPreview();
+  window.addEventListener('hashchange', applyHashPreview);
+}
+
+function applyHashPreview() {
+  const hash = location.hash.replace('#', '');
+  state.preview = Boolean(hash);
+  if (hash === 'welcome' || hash === 'onboard') {
+    showView('onboarding');
+    setOnboardStep(1);
+    return;
+  }
+  if (hash === 'key') {
+    showView('onboarding');
+    setOnboardStep(2);
+    return;
+  }
+  if (hash === 'test') {
+    showView('onboarding');
+    setOnboardStep(4);
+    setTestState('busy');
+    setBar('onboardFill', 'onboardMeta', 44, '44%');
+    return;
+  }
+  if (hash === 'ready') {
+    showView('onboarding');
+    setOnboardStep(4);
+    setTestState('ready');
+    setBar('onboardFill', 'onboardMeta', 100, '100%');
+    return;
+  }
+  if (hash === 'live') {
+    showView('live');
+    renderSession({
+      phase: 'live',
+      meetCode: 'abc-defg-hij',
+      botCount: 6,
+      counters: {
+        launching: 1, joined: 3, chatting: 2, messagesSent: 4, error: 0, blocked: 0,
+      },
+      bots: [
+        { name: 'Ana Costa', status: 'joined', sent: 0 },
+        { name: 'Bruno Silva', status: 'chatting', sent: 2 },
+        { name: 'Carla Dias', status: 'joined', sent: 0 },
+        { name: 'Diogo Nunes', status: 'chatting', sent: 1 },
+        { name: 'Eva Rocha', status: 'joined', sent: 1 },
+        { name: 'Filipe Reis', status: 'launching', sent: 0 },
+      ],
+      log: [
+        { line: '[19:40] Ana Costa entrou na sala' },
+        { line: '[19:40] Bruno Silva enviou uma mensagem' },
+        { line: '[19:41] A plateia está a ouvir.' },
+      ],
+    });
+  }
 }
 
 boot().catch((error) => {
