@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Plateia Console — ensaio ao vivo</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/console.css?v=minimal2">
+  <link rel="stylesheet" href="/console.css?v=brief1">
 </head>
 <body>
   <div class="app" id="app">
@@ -169,7 +169,8 @@
             </label>
             <label class="field">
               <span>Brief da apresentação</span>
-              <textarea id="brief" rows="5" placeholder="O que vais ensaiar, para quem, o que queres testar…"></textarea>
+              <textarea id="brief" rows="5" placeholder="O que vais ensaiar, para quem, o que os convidados devem comentar…"></textarea>
+              <small class="hint" id="briefHint">A IA lê este texto e reparte falas distintas pelos N convidados no chat oficial do Meet — não é o banco genérico.</small>
             </label>
             <fieldset class="tones" id="toneField">
               <legend>Tom da plateia</legend>
@@ -198,8 +199,19 @@
               <input type="checkbox" id="showChrome" checked>
               <span>Mostrar janelas Chrome (recomendado)</span>
             </label>
+            <label class="check" id="enrichWrap">
+              <input type="checkbox" id="enrichPhrases" checked>
+              <span>Gerar falas com IA (OpenRouter)</span>
+            </label>
+            <p class="hint" id="enrichHint"></p>
+            <button type="button" class="ghost block" id="previewPhrases">Pré-visualizar falas</button>
             <button type="button" class="cta xl" id="startSession">Entrar em ensaio</button>
             <p class="warn" id="setupError" hidden></p>
+            <div class="preview-panel" id="phrasePreview" hidden>
+              <p class="kicker">Falas atribuídas</p>
+              <p class="hint" id="phrasePreviewMeta"></p>
+              <div id="phrasePreviewList"></div>
+            </div>
           </div>
         </div>
       </section>
@@ -260,8 +272,8 @@
           <circle cx="20" cy="47" r="2.1"/>
         </svg>
       </div>
-      <h2><span class="soft">A entrar em</span> ensaio</h2>
-      <p class="lede">Os convidados estão a abrir o Meet.</p>
+      <h2 id="launchTitle"><span class="soft">A entrar em</span> ensaio</h2>
+      <p class="lede" id="launchLede">Os convidados estão a abrir o Meet.</p>
       <div class="progress-block">
         <div class="progress-track"><div class="progress-fill" id="launchFill"></div></div>
         <p class="progress-meta" id="launchMeta">0%</p>

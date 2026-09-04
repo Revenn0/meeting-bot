@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { createSettingsStore } from '../console/settings-store.js';
-import { createSessionController } from '../console/session-controller.js';
+import { buildGuestChatEnv, createSessionController } from '../console/session-controller.js';
 
 function fakeLaunch(bot, { stayMs = 80, status = 'in-call' } = {}) {
   const joinPromise = Promise.resolve({ name: bot.name, botIndex: bot.botIndex, status });
@@ -65,5 +65,55 @@ describe('session controller', () => {
     const idle = controller.reset();
     assert.equal(idle.phase, 'idle');
     assert.equal(idle.bots.length, 0);
+  });
+
+  it('passes a distinct CHAT_MESSAGES_JSON to each spawned guest', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plateia-env-'));
+    const settingsStore = createSettingsStore({ userDataDir: dir });
+    const envs = [];
+    const controller = createSessionController({
+      root: dir,
+      settingsStore,
+      spawnGuest: ({ name, botIndex, extraEnv }) => {
+        envs.push({ name, botIndex, extraEnv });
+        return fakeLaunch({ name, botIndex });
+      },
+    });
+
+    const env = buildGuestChatEnv({
+      messages: ['alpha', 'alpha2'],
+      recordSeconds: 30,
+      chatIntervalMs: 8000,
+      showChrome: true,
+      controlFile: '/tmp/ctl.json',
+    });
+    assert.equal(env.CHAT_MESSAGE, 'alpha');
+    assert.deepEqual(JSON.parse(env.CHAT_MESSAGES_JSON), ['alpha', 'alpha2']);
+
+    await controller.start({
+      meetUrl: 'https://meet.google.com/abc-defg-hij',
+      botCount: 2,
+      brief: 'Ensaio de vendas',
+      recordSeconds: 30,
+      fleet: {
+        source: 'openrouter',
+        bots: [
+          { index: 1, name: 'Plateia-1', messages: ['alpha', 'alpha2'] },
+          { index: 2, name: 'Plateia-2', messages: ['beta', 'beta2'] },
+        ],
+      },
+      phraseSource: 'openrouter',
+    });
+
+    const deadline = Date.now() + 2000;
+    while (envs.length < 2 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    assert.equal(envs.length, 2);
+    assert.equal(envs[0].extraEnv.CHAT_MESSAGE, 'alpha');
+    assert.deepEqual(JSON.parse(envs[0].extraEnv.CHAT_MESSAGES_JSON), ['alpha', 'alpha2']);
+    assert.equal(envs[1].extraEnv.CHAT_MESSAGE, 'beta');
+    assert.deepEqual(JSON.parse(envs[1].extraEnv.CHAT_MESSAGES_JSON), ['beta', 'beta2']);
+    await controller.stop();
   });
 });

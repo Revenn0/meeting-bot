@@ -21,7 +21,7 @@ RAM: conta ~0,4 GiB por convidado. 8 convidados cabem num portátil de 16 GiB; 1
    - atualiza a lista e escolhe um modelo **grátis**;
    - testa a ligação;
    - entra na consola.
-5. Cola o link Meet, escolhe 1–15 convidados, escreve o brief, carrega em **Entrar em ensaio**.
+5. Cola o link Meet, escolhe 1–15 convidados, escreve o **brief da apresentação** (tema + o que os bots devem falar). Com a chave e o modelo do onboarding, **Gerar falas com IA** vem ligado: a Plateia pede ao OpenRouter um guião por convidado. Podes **Pré-visualizar falas** sem abrir o Meet. Depois **Entrar em ensaio**.
 6. Admite os convidados se o Meet pedir. Vê o medidor 0–15 e o registo ao vivo.
 7. **Terminar** → debrief automático (podes gerar outra vez) → **Exportar .txt**.
 

@@ -17,7 +17,7 @@ import {
 } from '../lib/bot-result.js';
 import { writeSessionControl } from '../lib/session-control.js';
 import { assertMeetUrl } from '../lib/meet-url.js';
-import { buildLocalPhrases } from './phrases.js';
+import { buildLocalFleet, messagesForBot, primaryPhrases } from './phrases.js';
 import { buildSessionStats } from './debrief.js';
 
 const UI_STATUSES = ['launching', 'joined', 'chatting', 'error', 'blocked'];
@@ -42,6 +42,10 @@ export function createEmptySession() {
     tone: 'curioso',
     extraPhrases: '',
     recordSeconds: 180,
+    phrases: [],
+    fleet: null,
+    phraseSource: 'local',
+    phraseWarning: '',
     bots: [],
     log: [],
     hardStop: false,
@@ -52,10 +56,33 @@ export function createEmptySession() {
   };
 }
 
+export function buildGuestChatEnv({
+  messages,
+  recordSeconds,
+  chatIntervalMs,
+  showChrome,
+  controlFile,
+}) {
+  const list = (Array.isArray(messages) && messages.length)
+    ? messages.map((line) => String(line).trim()).filter(Boolean)
+    : ['Olá — estou a acompanhar.'];
+  return {
+    CHAT_MESSAGE: list[0],
+    CHAT_MESSAGES_JSON: JSON.stringify(list),
+    RECORD_SECONDS: String(recordSeconds),
+    CHAT_INTERVAL_MS: String(chatIntervalMs),
+    HEADLESS: showChrome ? 'false' : 'true',
+    WINDOW_SIZE: '1280x720',
+    SESSION_CONTROL_FILE: controlFile,
+    MODE: 'chat-only',
+  };
+}
+
 export function createSessionController({
   root,
   settingsStore,
   launchGuest,
+  spawnGuest,
   now = () => Date.now(),
   logLimit = 400,
 } = {}) {
@@ -163,20 +190,20 @@ export function createSessionController({
   };
 
   const defaultLaunch = (bot, context) => {
-    const guest = spawnLiveGuest({
+    const messages = messagesForBot(context.fleet, bot.botIndex);
+    const spawn = spawnGuest || spawnLiveGuest;
+    const guest = spawn({
       name: bot.name,
       botIndex: bot.botIndex,
       meetUrl: context.meetUrl,
       root,
-      extraEnv: {
-        CHAT_MESSAGE: context.phrases[bot.botIndex % context.phrases.length],
-        RECORD_SECONDS: String(context.recordSeconds),
-        CHAT_INTERVAL_MS: String(context.chatIntervalMs),
-        HEADLESS: context.showChrome ? 'false' : 'true',
-        WINDOW_SIZE: '1280x720',
-        SESSION_CONTROL_FILE: controlFile,
-        MODE: 'chat-only',
-      },
+      extraEnv: buildGuestChatEnv({
+        messages,
+        recordSeconds: context.recordSeconds,
+        chatIntervalMs: context.chatIntervalMs,
+        showChrome: context.showChrome,
+        controlFile,
+      }),
       onLog: (line) => {
         appendLog(line);
         applyLine(line, { name: bot.name, botIndex: bot.botIndex });
@@ -197,9 +224,6 @@ export function createSessionController({
     const tone = input.tone || 'curioso';
     const brief = String(input.brief || '').slice(0, 4000);
     const extraPhrases = String(input.extraPhrases || '').slice(0, 2000);
-    const phrases = (input.phrases && input.phrases.length)
-      ? input.phrases
-      : buildLocalPhrases({ brief, tone, extraPhrases, count: botCount });
     const namePrefix = String(input.botNamePrefix || 'Plateia').replace(/\s+/g, '-').slice(0, 24);
     const showChrome = input.showChrome !== false;
     const waves = planWaves({
@@ -207,6 +231,29 @@ export function createSessionController({
       waveSize: Math.min(8, botCount),
       namePrefix,
     });
+    const botNames = waves.flatMap((wave) => wave.bots.map((bot) => bot.name));
+    const fleet = input.fleet?.bots?.length
+      ? {
+        ...input.fleet,
+        bots: botNames.map((name, i) => ({
+          index: i + 1,
+          name: input.fleet.bots[i]?.name || name,
+          messages: input.fleet.bots[i]?.messages?.length
+            ? input.fleet.bots[i].messages
+            : messagesForBot(input.fleet, i),
+        })),
+      }
+      : (input.phrases?.length
+        ? {
+          bots: botNames.map((name, i) => ({
+            index: i + 1,
+            name,
+            messages: [input.phrases[i % input.phrases.length]],
+          })),
+          source: input.phraseSource || 'local',
+        }
+        : buildLocalFleet({ brief, tone, extraPhrases, botCount, botNames }));
+    const phrases = primaryPhrases(fleet);
 
     session = {
       ...createEmptySession(),
@@ -221,6 +268,9 @@ export function createSessionController({
       extraPhrases,
       recordSeconds,
       phrases,
+      fleet,
+      phraseSource: input.phraseSource || fleet.source || 'local',
+      phraseWarning: input.phraseWarning || '',
       bots: waves.flatMap((wave) => wave.bots.map((bot) => ({
         name: bot.name,
         index: bot.botIndex,
@@ -229,11 +279,13 @@ export function createSessionController({
         joined: false,
         reason: '',
         joinedAt: null,
+        messages: messagesForBot(fleet, bot.botIndex),
       }))),
     };
     liveGuests = [];
     writeControl();
     appendLog(`[plateia] Ensaio ${session.id.slice(0, 8)} · ${botCount} convidados · ${parsed.code}`);
+    appendLog(`[plateia] Falas: ${session.phraseSource}${session.phraseWarning ? ` · ${session.phraseWarning}` : ''}`);
     emit('session', snapshot());
 
     if (settingsStore) {
@@ -262,6 +314,7 @@ export function createSessionController({
 
     const launch = launchGuest || ((bot) => defaultLaunch(bot, {
       meetUrl: parsed.href,
+      fleet,
       phrases,
       recordSeconds: staySeconds,
       chatIntervalMs,
