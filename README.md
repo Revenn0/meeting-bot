@@ -4,7 +4,7 @@ Sala de controlo local para ensaiar apresentações com uma **plateia real** no 
 
 Até **15** convidados entram na tua sala e usam o **chat oficial**. Motor CHAT_ONLY já existente neste fork. Sem Modal. Sem upstream `beihaogu`.
 
-UI em português. Design: sala de ensaio escura (tinta `#0B0F14`, âmbar `#F5A524`, menta `#3DDC97`).
+UI em português. Design: minimalista claro (off-white, título preto, subtexto cinza, barra `#2B7CFF`, CTA preta em pílula).
 
 ## Victor — Windows
 
