@@ -31,6 +31,7 @@ const state = {
   session: null,
   tone: 'curioso',
   meetOk: false,
+  preview: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -285,6 +286,7 @@ async function validateMeet() {
 
 function pollSession() {
   setInterval(async () => {
+    if (state.preview) return;
     if (!state.session || (state.session.phase !== 'live' && state.session.phase !== 'paused')) {
       return;
     }
@@ -467,6 +469,7 @@ async function boot() {
 
 function applyHashPreview() {
   const hash = location.hash.replace('#', '');
+  state.preview = Boolean(hash);
   if (hash === 'welcome' || hash === 'onboard') {
     showView('onboarding');
     setOnboardStep(1);
@@ -488,7 +491,7 @@ function applyHashPreview() {
     showView('onboarding');
     setOnboardStep(4);
     setTestState('ready');
-    setBar('onboardFill', 'onboardMeta', 100, 'Plateia Console');
+    setBar('onboardFill', 'onboardMeta', 100, '100%');
     return;
   }
   if (hash === 'live') {

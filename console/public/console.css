@@ -428,7 +428,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin-top: 10px
   align-items: center;
 }
 .calm h2 { margin: 22px 0 10px; font-size: 28px; color: var(--ink); }
-.calm h2 .soft { color: #8a8f98; font-weight: 500; }
+.calm h2 .soft { color: #9aa1ab; font-weight: 500; }
 .calm .lede { margin: 0 auto 28px; }
 .calm .field { width: min(360px, 100%); }
 .calm .cta { margin-top: 6px; }
