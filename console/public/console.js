@@ -32,6 +32,8 @@ const state = {
   tone: 'curioso',
   meetOk: false,
   preview: false,
+  update: null,
+  updatePoll: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -99,6 +101,193 @@ function setTestState(mode) {
 function setLaunchVeil(on) {
   const veil = $('launchVeil');
   if (veil) veil.hidden = !on;
+}
+
+function flashToast(text, ms = 2400) {
+  const toast = $('updateToast');
+  if (!toast) return;
+  toast.textContent = text;
+  toast.hidden = false;
+  clearTimeout(flashToast.timer);
+  flashToast.timer = setTimeout(() => {
+    toast.hidden = true;
+  }, ms);
+}
+
+function stopUpdatePoll() {
+  if (state.updatePoll) {
+    clearInterval(state.updatePoll);
+    state.updatePoll = null;
+  }
+}
+
+function setUpdateChip(update) {
+  const chip = $('updateChip');
+  if (!chip) return;
+  const show = Boolean(update?.available && update.skipped && update.phase !== 'done');
+  chip.hidden = !show;
+}
+
+function setUpdateScreen(mode) {
+  const veil = $('updateVeil');
+  if (!veil) return;
+  const panels = {
+    checking: 'updateChecking',
+    ready: 'updateReady',
+    busy: 'updateBusy',
+    done: 'updateDone',
+    blocked: 'updateBlocked',
+    error: 'updateError',
+    current: 'updateCurrent',
+  };
+  const visible = Boolean(mode);
+  veil.hidden = !visible;
+  document.body.classList.toggle('is-updating', visible);
+  for (const [key, id] of Object.entries(panels)) {
+    const el = $(id);
+    if (el) el.hidden = key !== mode;
+  }
+  $('updateMark')?.classList.toggle('is-ready', mode === 'ready' || mode === 'done' || mode === 'current');
+}
+
+function applyUpdateStatus(update) {
+  state.update = update;
+  setUpdateChip(update);
+  if (!update) return;
+
+  const from = update.currentVersion || '—';
+  const to = update.latestVersion || '—';
+  if ($('updateReadySub')) $('updateReadySub').textContent = `${from} → ${to}`;
+  if ($('updateReadyVersion')) {
+    $('updateReadyVersion').textContent = `Plateia Console ${to}`;
+  }
+  if ($('updateCurrentSub') && update.currentVersion) {
+    $('updateCurrentSub').textContent = `Plateia Console ${update.currentVersion}`;
+  }
+  if ($('updateErrorText') && update.error) {
+    $('updateErrorText').textContent = update.error;
+  }
+
+  if (update.phase === 'checking') {
+    setUpdateScreen('checking');
+    return;
+  }
+  if (update.phase === 'ready') {
+    setBar('updateReadyFill', 'updateReadyVersion', 100, `Plateia Console ${to}`);
+    setUpdateScreen('ready');
+    return;
+  }
+  if (update.phase === 'downloading' || update.phase === 'applying') {
+    setUpdateScreen('busy');
+    setBar('updateFill', 'updateMeta', update.progress || 0, `${Math.round(update.progress || 0)}%`);
+    return;
+  }
+  if (update.phase === 'done') {
+    stopUpdatePoll();
+    setBar('updateFill', 'updateMeta', 100, '100%');
+    setUpdateScreen('done');
+    return;
+  }
+  if (update.phase === 'blocked') {
+    stopUpdatePoll();
+    setUpdateScreen('blocked');
+    return;
+  }
+  if (update.phase === 'error') {
+    stopUpdatePoll();
+    setUpdateScreen('error');
+    return;
+  }
+}
+
+function hideUpdateScreen() {
+  stopUpdatePoll();
+  setUpdateScreen(null);
+}
+
+async function checkUpdates({ force = false, silent = false } = {}) {
+  if (!silent) setUpdateScreen('checking');
+  try {
+    const path = force ? '/api/update/check?force=1' : '/api/update/check';
+    const data = await api(path);
+    const update = data.update;
+    applyUpdateStatus(update);
+    if (update.rateLimited && !silent) {
+      hideUpdateScreen();
+      flashToast('GitHub limitou o ritmo. Tenta mais tarde.');
+      return update;
+    }
+    if (update.available && (force || !update.skipped)) {
+      applyUpdateStatus({ ...update, phase: 'ready' });
+      return update;
+    }
+    if (force && !update.available) {
+      setUpdateScreen('current');
+      return update;
+    }
+    if (!silent && !update.available) hideUpdateScreen();
+    else if (silent) setUpdateChip(update);
+    return update;
+  } catch (error) {
+    if (silent) return null;
+    applyUpdateStatus({ phase: 'error', error: error.message });
+    return null;
+  }
+}
+
+function pollUpdateStatus() {
+  stopUpdatePoll();
+  state.updatePoll = setInterval(async () => {
+    try {
+      const data = await api('/api/update/status');
+      applyUpdateStatus(data.update);
+      if (['done', 'error', 'blocked', 'idle', 'ready'].includes(data.update?.phase)) {
+        if (data.update.phase === 'idle' || data.update.phase === 'ready') stopUpdatePoll();
+      }
+    } catch {
+      // keep last snapshot
+    }
+  }, 400);
+}
+
+async function startUpdate() {
+  const live = state.session?.phase === 'live' || state.session?.phase === 'paused';
+  if (live) {
+    applyUpdateStatus({ ...(state.update || {}), phase: 'blocked' });
+    return;
+  }
+  setUpdateScreen('busy');
+  setBar('updateFill', 'updateMeta', 4, '4%');
+  pollUpdateStatus();
+  try {
+    const data = await api('/api/update/start', { method: 'POST' });
+    applyUpdateStatus(data.update);
+  } catch (error) {
+    stopUpdatePoll();
+    applyUpdateStatus({ phase: 'error', error: error.message });
+  }
+}
+
+async function skipUpdate() {
+  try {
+    const data = await api('/api/update/skip', { method: 'POST' });
+    hideUpdateScreen();
+    applyUpdateStatus(data.update);
+    flashToast('Versão ignorada por agora.');
+  } catch (error) {
+    flashToast(error.message);
+  }
+}
+
+async function restartAfterUpdate() {
+  try {
+    await api('/api/update/restart', { method: 'POST' });
+    setTimeout(() => {
+      window.location.reload();
+    }, 1400);
+  } catch {
+    flashToast('Se não reabrir, usa ABRIR.bat.');
+  }
 }
 
 function setMeter(joined, requested = 15, live = false) {
@@ -303,6 +492,18 @@ function bind() {
   for (const btn of document.querySelectorAll('.nav-btn')) {
     btn.addEventListener('click', () => showView(btn.dataset.view));
   }
+  $('checkUpdateBtn').addEventListener('click', () => {
+    checkUpdates({ force: true }).catch((error) => flashToast(error.message));
+  });
+  $('updateChip').addEventListener('click', () => {
+    checkUpdates({ force: true }).catch((error) => flashToast(error.message));
+  });
+  $('updateNowBtn').addEventListener('click', () => startUpdate());
+  $('updateSkipBtn').addEventListener('click', () => skipUpdate());
+  $('updateRestartBtn').addEventListener('click', () => restartAfterUpdate());
+  $('updateBlockedBack').addEventListener('click', () => hideUpdateScreen());
+  $('updateErrorBack').addEventListener('click', () => hideUpdateScreen());
+  $('updateCurrentBack').addEventListener('click', () => hideUpdateScreen());
   $('settingsBtn').addEventListener('click', () => {
     showView('onboarding');
     setOnboardStep(2);
@@ -465,6 +666,9 @@ async function boot() {
   pollSession();
   applyHashPreview();
   window.addEventListener('hashchange', applyHashPreview);
+  if (!state.preview) {
+    checkUpdates({ silent: true }).catch(() => {});
+  }
 }
 
 function applyHashPreview() {
@@ -492,6 +696,37 @@ function applyHashPreview() {
     setOnboardStep(4);
     setTestState('ready');
     setBar('onboardFill', 'onboardMeta', 100, '100%');
+    return;
+  }
+  if (hash === 'update-ready' || hash === 'update') {
+    applyUpdateStatus({
+      phase: 'ready',
+      available: true,
+      skipped: false,
+      currentVersion: '2.0.0',
+      latestVersion: '2.1.0',
+      progress: 100,
+    });
+    return;
+  }
+  if (hash === 'updating') {
+    applyUpdateStatus({
+      phase: 'downloading',
+      available: true,
+      currentVersion: '2.0.0',
+      latestVersion: '2.1.0',
+      progress: 44,
+    });
+    return;
+  }
+  if (hash === 'update-done') {
+    applyUpdateStatus({
+      phase: 'done',
+      available: true,
+      currentVersion: '2.0.0',
+      latestVersion: '2.1.0',
+      progress: 100,
+    });
     return;
   }
   if (hash === 'live') {

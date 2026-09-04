@@ -20,4 +20,14 @@ describe('settings store', () => {
     const disk = JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'), 'utf8'));
     assert.equal(disk.openrouterApiKey, undefined);
   });
+
+  it('persists skippedUpdateVersion without exposing the API key', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plateia-skip-'));
+    const store = createSettingsStore({ userDataDir: dir });
+    store.save({ openrouterApiKey: 'sk-secret-key-value', skippedUpdateVersion: '2.1.0' });
+    const pub = store.publicView();
+    assert.equal(pub.skippedUpdateVersion, '2.1.0');
+    assert.equal(store.load().skippedUpdateVersion, '2.1.0');
+    assert.doesNotMatch(JSON.stringify(pub), /sk-secret-key-value/);
+  });
 });

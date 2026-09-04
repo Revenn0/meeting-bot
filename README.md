@@ -41,6 +41,11 @@ Abre `http://127.0.0.1:8787`.
 | GET | `/api/session` · `/api/session/events` | Estado + SSE |
 | POST | `/api/debrief` | Texto via OpenRouter |
 | GET | `/api/debrief/export` | `.txt` |
+| GET | `/api/update/check` | Comparar com GitHub Releases |
+| POST | `/api/update/start` · `/api/update/skip` · `/api/update/restart` | Aplicar / ignorar / reiniciar |
+| GET | `/api/update/status` · `/api/update/events` | Poll + SSE |
+
+Atualizações: ver **`INSTALAR.md`**. A pasta atual é `2.0.0`; o próximo Release (`v2.1.0` + `plateia-console-windows.zip`) é o que os PCs vão descarregar.
 
 ## Testes
 
