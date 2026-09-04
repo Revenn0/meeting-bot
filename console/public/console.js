@@ -343,7 +343,17 @@ function bind() {
       $('debriefError').textContent = error.message;
     }
   });
-  $('newSession').addEventListener('click', () => showView('setup'));
+  $('newSession').addEventListener('click', async () => {
+    setPhase('idle');
+    setMeter(0, 15, false);
+    try {
+      const data = await api('/api/session/reset', { method: 'POST' });
+      renderSession(data.session);
+    } catch {
+      // already back to standby in the header
+    }
+    showView('setup');
+  });
 }
 
 async function boot() {

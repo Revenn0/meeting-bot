@@ -199,6 +199,18 @@ export function createPlateiaApp({
     }
   });
 
+  app.post('/api/session/reset', async (_req, res) => {
+    try {
+      if (typeof session.reset === 'function') {
+        res.json({ ok: true, session: session.reset() });
+        return;
+      }
+      res.json({ ok: true, session: session.snapshot() });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
   app.get('/api/session/events', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');

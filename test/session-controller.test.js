@@ -62,5 +62,8 @@ describe('session controller', () => {
     assert.equal(stopped.phase, 'ended');
     const after = controller.setDebrief({ text: 'Bom join.', model: 'test/free' });
     assert.equal(after.debriefText, 'Bom join.');
+    const idle = controller.reset();
+    assert.equal(idle.phase, 'idle');
+    assert.equal(idle.bots.length, 0);
   });
 });

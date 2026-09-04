@@ -96,5 +96,8 @@ describe('Plateia HTTP API', () => {
 
     const exported = await fetch(`${base}/api/debrief/export`).then((r) => r.text());
     assert.match(exported, /PLATEIA CONSOLE/);
+
+    const reset = await fetch(`${base}/api/session/reset`, { method: 'POST' }).then((r) => r.json());
+    assert.equal(reset.session.phase, 'idle');
   });
 });

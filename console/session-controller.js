@@ -372,5 +372,15 @@ export function createSessionController({
       emit('session', snapshot());
       return snapshot();
     },
+    reset() {
+      if (session.phase === 'live' || session.phase === 'paused') {
+        throw new Error('Para o ensaio atual antes de limpar a consola.');
+      }
+      session = createEmptySession();
+      liveGuests = [];
+      writeControl();
+      emit('session', snapshot());
+      return snapshot();
+    },
   };
 }

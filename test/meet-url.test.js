@@ -13,6 +13,7 @@ describe('Meet URL', () => {
     assert.equal(parseMeetUrl('').ok, false);
     assert.equal(parseMeetUrl('https://meet.google.com/YOUR-MEET-CODE').ok, false);
     assert.equal(parseMeetUrl('https://zoom.us/j/123').ok, false);
+    assert.match(parseMeetUrl('https://zoom.us/j/123').error, /meet\.google\.com/);
     assert.equal(parseMeetUrl('https://meet.google.com/').ok, false);
   });
 
