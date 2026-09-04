@@ -35,6 +35,7 @@ export function emptySettings() {
     showChrome: true,
     lastModels: [],
     lastModelsAt: 0,
+    skippedUpdateVersion: '',
   };
 }
 
@@ -120,6 +121,7 @@ export function createSettingsStore({ root, userDataDir, env = process.env } = {
     showChrome: settings.showChrome !== false,
     lastModels: settings.lastModels || [],
     lastModelsAt: settings.lastModelsAt || 0,
+    skippedUpdateVersion: settings.skippedUpdateVersion || '',
     userDataDir: dir,
   });
 

@@ -4,6 +4,7 @@ import express from 'express';
 import { createSettingsStore } from './settings-store.js';
 import { createOpenRouter } from './openrouter.js';
 import { createSessionController } from './session-controller.js';
+import { createUpdater, readLocalVersion } from './updater.js';
 import { parseMeetUrl } from '../lib/meet-url.js';
 import { MAX_FLEET_SIZE } from '../lib/wave-planner.js';
 import { buildLocalPhrases, audiencePhrasePrompt, parseGeneratedPhrases, TONES } from './phrases.js';
@@ -16,11 +17,15 @@ export function createPlateiaApp({
   settingsStore: injectedStore,
   session: injectedSession,
   openrouter: injectedOpenrouter,
+  updater: injectedUpdater,
   publicDir = path.join(__dirname, 'public'),
 } = {}) {
-  const settingsStore = injectedStore || createSettingsStore({ root });
+  const appRoot = root || path.resolve(__dirname, '..');
+  const settingsStore = injectedStore || createSettingsStore({ root: appRoot });
   const openrouter = injectedOpenrouter || createOpenRouter();
-  const session = injectedSession || createSessionController({ root, settingsStore });
+  const session = injectedSession || createSessionController({ root: appRoot, settingsStore });
+  const updater = injectedUpdater || createUpdater({ root: appRoot, settingsStore, session });
+  const appVersion = updater.currentVersion || readLocalVersion(appRoot);
 
   const app = express();
   app.disable('x-powered-by');
@@ -35,6 +40,7 @@ export function createPlateiaApp({
     res.json({
       ok: true,
       name: 'Plateia Console',
+      version: appVersion,
       maxBots: MAX_FLEET_SIZE,
       tones: TONES,
     });
@@ -64,6 +70,9 @@ export function createPlateiaApp({
       if (body.recordSeconds !== undefined) patch.recordSeconds = Number(body.recordSeconds);
       if (body.chatIntervalMs !== undefined) patch.chatIntervalMs = Number(body.chatIntervalMs);
       if (body.showChrome !== undefined) patch.showChrome = Boolean(body.showChrome);
+      if (body.skippedUpdateVersion !== undefined) {
+        patch.skippedUpdateVersion = String(body.skippedUpdateVersion).trim();
+      }
       const saved = settingsStore.save(patch);
       res.json({ ok: true, settings: settingsStore.publicView(saved) });
     } catch (error) {
@@ -263,6 +272,61 @@ export function createPlateiaApp({
     }
   });
 
+  app.get('/api/update/check', async (req, res) => {
+    try {
+      const ignoreSkip = String(req.query?.force || '') === '1';
+      const update = await updater.check({ ignoreSkip });
+      res.json({ ok: true, update });
+    } catch (error) {
+      sendError(res, error, 502);
+    }
+  });
+
+  app.post('/api/update/skip', (_req, res) => {
+    try {
+      res.json({ ok: true, update: updater.skipCurrent() });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  app.post('/api/update/start', async (_req, res) => {
+    try {
+      const update = await updater.start();
+      res.json({ ok: true, update });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  app.get('/api/update/status', (_req, res) => {
+    res.json({ ok: true, update: updater.getStatus() });
+  });
+
+  app.get('/api/update/events', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+    res.write(`data: ${JSON.stringify({ type: 'update', payload: updater.getStatus() })}\n\n`);
+    const unsubscribe = updater.subscribe((payload) => {
+      res.write(`data: ${JSON.stringify({ type: 'update', payload })}\n\n`);
+    });
+    req.on('close', unsubscribe);
+  });
+
+  app.post('/api/update/restart', (req, res) => {
+    res.json({ ok: true, restarting: true, hint: 'Se a janela não reabrir, usa ABRIR.bat.' });
+    res.end();
+    setTimeout(() => {
+      try {
+        updater.restart();
+      } catch (error) {
+        console.warn('[plateia] restart falhou:', error.message);
+      }
+    }, 500);
+  });
+
   app.get('/api/debrief/export', (_req, res) => {
     const snap = session.snapshot();
     const stats = buildSessionStats(snap);
@@ -282,5 +346,5 @@ export function createPlateiaApp({
     sendError(res, error, 500);
   });
 
-  return { app, settingsStore, session, openrouter };
+  return { app, settingsStore, session, openrouter, updater };
 }
