@@ -1,28 +1,35 @@
 {
-  "name": "meeting-bot",
+  "name": "plateia-console",
   "type": "module",
-  "version": "1.1.0",
-  "description": "Google Meet bot with recording and chat-only modes",
-  "main": "bot.js",
+  "version": "2.0.0",
+  "description": "Plateia Console — ensaio local com até 15 convidados reais no Google Meet",
+  "main": "console/index.js",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "start": "node scripts/run-one-bot.js",
+    "start": "node console/index.js",
+    "console": "node console/index.js",
     "bot:one": "node scripts/run-one-bot.js",
     "fleet:10": "node scripts/run-fleet-live.js --size=10",
-    "fleet:20": "node scripts/run-fleet-live.js --size=20",
-    "fleet:100": "node scripts/run-fleet-live.js --size=100",
+    "fleet:15": "node scripts/run-fleet-live.js --size=15",
     "test": "node --test test/*.test.js",
     "benchmark:mock": "node scripts/benchmark-modes.js",
     "benchmark:chromium": "node scripts/benchmark-chromium-profiles.js",
     "loadtest:chat-only": "node scripts/load-test-chat-only.js",
-    "fleet:local": "node scripts/run-fleet.js"
+    "fleet:local": "node scripts/run-fleet.js",
+    "pack:windows": "node scripts/pack-windows.js"
   },
-  "keywords": [],
+  "keywords": [
+    "google-meet",
+    "plateia",
+    "chat-only",
+    "rehearsal"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "express": "^4.21.2",
     "puppeteer": "^25.1.0"
   }
 }

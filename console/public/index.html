@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plateia Console — ensaio ao vivo</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/console.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="app" id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <p class="eyebrow">Sala de controlo</p>
+          <h1>Plateia</h1>
+        </div>
+      </div>
+      <div class="top-status">
+        <span class="phase-pill" id="phasePill" data-phase="idle">STANDBY</span>
+        <span class="model-chip" id="modelChip">modelo —</span>
+        <button type="button" class="ghost" id="settingsBtn">Chave / modelo</button>
+      </div>
+    </header>
+
+    <aside class="rail">
+      <div class="meter-wrap">
+        <svg class="meter" viewBox="0 0 120 120" role="img" aria-labelledby="meterTitle">
+          <title id="meterTitle">Medidor de plateia</title>
+          <circle class="meter-track" cx="60" cy="60" r="50"></circle>
+          <circle class="meter-fill" id="meterFill" cx="60" cy="60" r="50"></circle>
+          <text class="meter-count" id="meterCount" x="60" y="58" text-anchor="middle">0</text>
+          <text class="meter-cap" x="60" y="76" text-anchor="middle">/ 15</text>
+        </svg>
+        <p class="meter-label">Plateia na sala</p>
+      </div>
+      <nav class="nav">
+        <button type="button" class="nav-btn" data-view="setup">Ensaio</button>
+        <button type="button" class="nav-btn" data-view="live">Ao vivo</button>
+        <button type="button" class="nav-btn" data-view="debrief">Debrief</button>
+      </nav>
+      <dl class="rail-stats">
+        <div><dt>Chat</dt><dd id="railChat">0</dd></div>
+        <div><dt>Falhas</dt><dd id="railFail">0</dd></div>
+        <div><dt>Bloqueio</dt><dd id="railBlock">0</dd></div>
+      </dl>
+    </aside>
+
+    <main class="stage">
+      <section class="view" id="view-onboarding" hidden>
+        <ol class="steps" id="onboardSteps">
+          <li class="on">1 · Boas-vindas</li>
+          <li>2 · Chave</li>
+          <li>3 · Modelo</li>
+          <li>4 · Teste</li>
+        </ol>
+        <div class="panel" id="onboard-1">
+          <p class="kicker">Primeiro arranque</p>
+          <h2>Uma plateia real no teu ensaio.</h2>
+          <p class="lede">Até 15 convidados entram no <strong>teu</strong> Google Meet e usam o chat oficial. Sem nuvem, sem Modal — só este PC.</p>
+          <ul class="rules">
+            <li>A chave OpenRouter fica em <code>user-data/.env</code>, neste computador.</li>
+            <li>Os bots são convidados de verdade. A sala tem de estar aberta.</li>
+            <li>Teto duro: 15. Não há atalho para mais.</li>
+          </ul>
+          <button type="button" class="cta" id="onboardNext1">Começar o setup</button>
+        </div>
+        <div class="panel" id="onboard-2" hidden>
+          <p class="kicker">OpenRouter</p>
+          <h2>Cola a chave local.</h2>
+          <p class="lede">Cria uma chave em openrouter.ai. Plateia só usa modelos <em>gratuitos</em>.</p>
+          <label class="field">
+            <span>Chave API</span>
+            <input type="password" id="onboardKey" autocomplete="off" placeholder="sk-or-v1-…">
+          </label>
+          <p class="hint" id="onboardKeyHint"></p>
+          <div class="row">
+            <button type="button" class="ghost" id="onboardBack2">Voltar</button>
+            <button type="button" class="cta" id="onboardSaveKey">Guardar e listar modelos</button>
+          </div>
+        </div>
+        <div class="panel" id="onboard-3" hidden>
+          <p class="kicker">Modelos grátis</p>
+          <h2>Escolhe o cérebro do debrief.</h2>
+          <div class="row">
+            <button type="button" class="ghost" id="refreshModels">Atualizar lista</button>
+            <span class="hint" id="modelsMeta"></span>
+          </div>
+          <div class="model-list" id="modelList"></div>
+          <div class="row">
+            <button type="button" class="ghost" id="onboardBack3">Voltar</button>
+            <button type="button" class="cta" id="onboardPickModel" disabled>Usar este modelo</button>
+          </div>
+        </div>
+        <div class="panel" id="onboard-4" hidden>
+          <p class="kicker">Ligação</p>
+          <h2>Um ping ao modelo.</h2>
+          <p class="lede">Confirmamos que a chave e o modelo respondem. Depois entras na sala de controlo.</p>
+          <pre class="log-block" id="testLog">À espera…</pre>
+          <div class="row">
+            <button type="button" class="ghost" id="onboardBack4">Voltar</button>
+            <button type="button" class="cta" id="testConnection">Testar ligação</button>
+            <button type="button" class="cta mint" id="finishOnboard" hidden>Entrar na consola</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-setup" hidden>
+        <div class="panel setup-grid">
+          <div class="setup-main">
+            <p class="kicker">Preparar ensaio</p>
+            <h2>Arma a plateia.</h2>
+            <label class="field">
+              <span>Link do Google Meet</span>
+              <input type="url" id="meetUrl" placeholder="https://meet.google.com/abc-defg-hij" spellcheck="false">
+              <small id="meetHint" class="hint">Sala aberta, aba do host ligada.</small>
+            </label>
+            <label class="field">
+              <span>Brief da apresentação</span>
+              <textarea id="brief" rows="5" placeholder="O que vais ensaiar, para quem, o que queres testar…"></textarea>
+            </label>
+            <fieldset class="tones" id="toneField">
+              <legend>Tom da plateia</legend>
+            </fieldset>
+            <label class="field">
+              <span>Frases extra (uma por linha, opcional)</span>
+              <textarea id="extraPhrases" rows="3" placeholder="Pode repetir o número-chave?&#10;Isto é para decidir o quê?"></textarea>
+            </label>
+          </div>
+          <div class="setup-side">
+            <div class="count-card">
+              <p class="kicker">Convidados</p>
+              <div class="stepper">
+                <button type="button" id="countMinus" aria-label="Menos">−</button>
+                <input type="number" id="botCount" min="1" max="15" value="6">
+                <button type="button" id="countPlus" aria-label="Mais">+</button>
+              </div>
+              <input type="range" id="botSlider" min="1" max="15" value="6">
+              <p class="hint">Teto fixo: 15 convidados reais.</p>
+            </div>
+            <label class="field">
+              <span>Duração na sala (segundos)</span>
+              <input type="number" id="recordSeconds" min="30" max="1800" step="30" value="180">
+            </label>
+            <label class="check">
+              <input type="checkbox" id="showChrome" checked>
+              <span>Mostrar janelas Chrome (recomendado)</span>
+            </label>
+            <button type="button" class="cta xl" id="startSession">Entrar em ensaio</button>
+            <p class="warn" id="setupError" hidden></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-live" hidden>
+        <div class="live-head">
+          <div>
+            <p class="kicker" id="liveKicker">Ao vivo</p>
+            <h2 id="liveTitle">A plateia está a entrar.</h2>
+          </div>
+          <div class="live-actions">
+            <button type="button" class="ghost" id="pauseBtn">Pausar</button>
+            <button type="button" class="danger" id="stopBtn">Terminar</button>
+          </div>
+        </div>
+        <div class="counters" id="liveCounters"></div>
+        <div class="bot-grid" id="botGrid"></div>
+        <div class="log-panel">
+          <p class="kicker">Registo</p>
+          <pre id="liveLog" class="log-block tall"></pre>
+        </div>
+      </section>
+
+      <section class="view" id="view-debrief" hidden>
+        <div class="panel">
+          <p class="kicker">Depois do ensaio</p>
+          <h2>Debrief</h2>
+          <div class="counters" id="debriefCounters"></div>
+          <article class="debrief-body" id="debriefBody">
+            <p class="lede">Termina um ensaio para gerar o resumo com o modelo escolhido.</p>
+          </article>
+          <div class="row">
+            <button type="button" class="cta" id="generateDebrief">Gerar debrief</button>
+            <a class="ghost linkish" id="exportDebrief" href="/api/debrief/export">Exportar .txt</a>
+            <button type="button" class="ghost" id="newSession">Novo ensaio</button>
+          </div>
+          <p class="warn" id="debriefError" hidden></p>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/console.js" type="module"></script>
+</body>
+</html>
