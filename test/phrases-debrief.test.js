@@ -5,6 +5,7 @@ import {
   briefToFleetPrompt,
   buildLocalFleet,
   buildLocalPhrases,
+  extractBriefSeeds,
   extractJsonObject,
   parseFleetAssignment,
   parseGeneratedPhrases,
@@ -23,6 +24,15 @@ describe('phrases and debrief', () => {
     assert.equal(phrases.length, 4);
     assert.equal(phrases[0], 'Qual é o custo?');
     assert.equal(splitExtraPhrases('a\n\nb ; c').length, 3);
+  });
+
+  it('extracts short topical seeds from a long brief', () => {
+    const seeds = extractBriefSeeds(
+      'Pitch de 8 minutos sobre energia solar para PME: custo, prazo e o risco se o financiamento falhar. Quero que a plateia pergunte pelo número-chave.',
+    );
+    assert.ok(seeds.some((seed) => /energia solar/i.test(seed)));
+    assert.ok(seeds.some((seed) => /custo|prazo|financiamento/i.test(seed)));
+    assert.equal(seeds.some((seed) => /^quero que/i.test(seed)), false);
   });
 
   it('weaves the brief into a distinct local script per guest', () => {

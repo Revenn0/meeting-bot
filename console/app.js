@@ -124,6 +124,16 @@ export function createPlateiaApp({
     }
   });
 
+  function shortOpenRouterError(message) {
+    const text = String(message || '');
+    if (/HTTP 401|User not found|Unauthorized/i.test(text)) {
+      return 'A chave foi recusada (401). Confirma-a no onboarding.';
+    }
+    if (/HTTP 429/i.test(text)) return 'O modelo está ocupado (429). Tenta outro grátis.';
+    if (/HTTP 4\d\d|HTTP 5\d\d/i.test(text)) return text.replace(/:[\s\S]+$/, '').trim();
+    return text.slice(0, 140);
+  }
+
   app.post('/api/meet/validate', (req, res) => {
     res.json(parseMeetUrl(req.body?.meetUrl));
   });
@@ -218,7 +228,7 @@ export function createPlateiaApp({
         enriched: true,
       };
     } catch (error) {
-      const warning = `OpenRouter falhou — a usar banco local. ${error.message}`;
+      const warning = `OpenRouter falhou — a usar banco local. ${shortOpenRouterError(error.message)}`;
       console.warn('[plateia] phrase enrich skipped:', error.message);
       return {
         fleet: { ...local, source: 'local' },

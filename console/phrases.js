@@ -59,14 +59,14 @@ const BANK = {
 const AI_VOICE_RE = /\b(como (uma )?ia|as an ai|sou (um )?modelo|i am an ai|enquanto ia)\b/i;
 
 const BRIEF_ANGLES = [
-  (seed) => `Sobre «${clip(seed, 42)}» — pode expandir?`,
-  (seed) => `Como isto se aplica a ${clip(seed, 48)}?`,
-  (seed) => `Qual é o risco se ${clip(seed, 50)} falhar?`,
-  (seed) => `Há um exemplo concreto de ${clip(seed, 48)}?`,
-  (seed) => `Isto muda o que disseste sobre ${clip(seed, 44)}?`,
-  (seed) => `Podes repetir a tese de ${clip(seed, 46)}?`,
-  (seed) => `Quem decide a seguir em ${clip(seed, 50)}?`,
-  (seed) => `Ficou claro o ponto de ${clip(seed, 48)}. E o próximo passo?`,
+  (seed) => `Sobre «${clip(seed, 36)}» — pode expandir?`,
+  (seed) => `Como isto se aplica a ${clip(seed, 40)}?`,
+  (seed) => `Qual é o risco em ${clip(seed, 40)}?`,
+  (seed) => `Há um exemplo concreto de ${clip(seed, 38)}?`,
+  (seed) => `Isto muda o que disseste sobre ${clip(seed, 34)}?`,
+  (seed) => `Podes repetir a tese de ${clip(seed, 36)}?`,
+  (seed) => `Quem decide o próximo passo em ${clip(seed, 32)}?`,
+  (seed) => `Ficou o ponto de ${clip(seed, 36)}. E a seguir?`,
 ];
 
 export function splitExtraPhrases(raw) {
@@ -106,12 +106,18 @@ export function extractBriefSeeds(brief) {
   const text = String(brief || '').replace(/\s+/g, ' ').trim();
   if (!text) return [];
   const parts = text
-    .split(/[.!?;\n]+/)
+    .split(/[.!?;:\n]+|(?:,\s+)|(?:\s+e\s+(?=o |a |os |as ))/)
     .map((part) => part.replace(/\s+/g, ' ').trim())
-    .filter((part) => part.length >= 8)
-    .map((part) => part.slice(0, 80));
-  if (parts.length) return parts.slice(0, 15);
-  return [text.slice(0, 80)];
+    .filter((part) => part.length >= 5)
+    .filter((part) => !/^(quero que|a plateia deve|os bots devem)\b/i.test(part))
+    .map((part) => {
+      const sobre = part.match(/\bsobre\s+(.+)/i);
+      const topic = sobre ? sobre[1] : part;
+      return topic.replace(/^(o |a |os |as |um |uma )/, '').slice(0, 56).trim();
+    })
+    .filter(Boolean);
+  if (parts.length) return [...new Set(parts)].slice(0, 15);
+  return [text.slice(0, 56)];
 }
 
 function toneBank(tone) {
@@ -176,9 +182,6 @@ export function buildLocalFleet({
     const extraFollow = extras[(index + names.length) % Math.max(extras.length, 1)];
     if (extraFollow) uniquePush(messages, extraFollow, seen);
     uniquePush(messages, bank[(index + 2) % bank.length], seen);
-    if (seed && tone === 'curioso') {
-      uniquePush(messages, `Sobre “${clip(seed, 42)}” — pode expandir?`, seen);
-    }
     return {
       index: index + 1,
       name,
